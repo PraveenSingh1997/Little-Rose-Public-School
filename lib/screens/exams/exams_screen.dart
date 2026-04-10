@@ -44,9 +44,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
         padding: EdgeInsets.fromLTRB(
             24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
         child: StatefulBuilder(builder: (ctx, setS) {
-          final subjects = selClass != null
-              ? classProvider.subjects
-              : classProvider.subjects;
           return SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -81,22 +78,32 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       .map((c) => DropdownMenuItem(
                           value: c.id, child: Text(c.displayName)))
                       .toList(),
-                  onChanged: (v) => setS(() {
-                    selClass = v;
-                    selSubject = null;
-                  }),
+                  onChanged: (v) {
+                    setS(() {
+                      selClass = v;
+                      selSubject = null;
+                    });
+                    if (v != null) {
+                      context.read<ClassProvider>().loadSubjectsForClass(v);
+                    }
+                  },
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  key: ValueKey(selSubject),
-                  initialValue: selSubject,
-                  decoration: const InputDecoration(labelText: 'Subject *'),
-                  items: subjects
-                      .map((s) => DropdownMenuItem(
-                          value: s.id, child: Text(s.name)))
-                      .toList(),
-                  onChanged: (v) => setS(() => selSubject = v),
-                ),
+                Consumer<ClassProvider>(builder: (_, cp, __) {
+                  final subs = selClass != null && cp.classSubjects.isNotEmpty
+                      ? cp.classSubjects
+                      : cp.subjects;
+                  return DropdownButtonFormField<String>(
+                    key: ValueKey('$selClass-$selSubject'),
+                    initialValue: selSubject,
+                    decoration: const InputDecoration(labelText: 'Subject *'),
+                    items: subs
+                        .map((s) => DropdownMenuItem(
+                            value: s.id, child: Text(s.name)))
+                        .toList(),
+                    onChanged: (v) => setS(() => selSubject = v),
+                  );
+                }),
                 const SizedBox(height: 12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -126,6 +133,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     if (nameCtrl.text.trim().isEmpty ||
                         selClass == null ||
                         selSubject == null) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                        content: Text('Exam name, class and subject are required'),
+                        behavior: SnackBarBehavior.floating,
+                      ));
                       return;
                     }
                     final data = {
@@ -139,12 +150,21 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           double.tryParse(marksCtrl.text.trim()) ?? 100,
                     };
                     Navigator.pop(ctx);
-                    if (existing == null) {
-                      await context.read<ExamProvider>().createExam(data);
-                    } else {
-                      await context
-                          .read<ExamProvider>()
-                          .updateExam(existing.id, data);
+                    try {
+                      if (existing == null) {
+                        await context.read<ExamProvider>().createExam(data);
+                      } else {
+                        await context
+                            .read<ExamProvider>()
+                            .updateExam(existing.id, data);
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Error saving exam: $e'),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      }
                     }
                   },
                   child: Text(

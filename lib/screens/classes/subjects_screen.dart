@@ -70,6 +70,10 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
               onPressed: () async {
                 if (nameCtrl.text.trim().isEmpty ||
                     codeCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Subject name and code are required'),
+                    behavior: SnackBarBehavior.floating,
+                  ));
                   return;
                 }
                 final data = {
@@ -81,12 +85,21 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       int.tryParse(hoursCtrl.text.trim()) ?? 3,
                 };
                 Navigator.pop(ctx);
-                if (existing == null) {
-                  await context.read<ClassProvider>().createSubject(data);
-                } else {
-                  await context
-                      .read<ClassProvider>()
-                      .updateSubject(existing.id, data);
+                try {
+                  if (existing == null) {
+                    await context.read<ClassProvider>().createSubject(data);
+                  } else {
+                    await context
+                        .read<ClassProvider>()
+                        .updateSubject(existing.id, data);
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error saving subject: $e'),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  }
                 }
               },
               child: Text(

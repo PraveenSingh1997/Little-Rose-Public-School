@@ -20,6 +20,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context.read<StudentProvider>().loadAll();
       context.read<TeacherProvider>().loadAll();
       context.read<AnnouncementProvider>().load();
+      context.read<ClassProvider>().loadAll();
     });
   }
 
@@ -29,6 +30,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final students = context.watch<StudentProvider>();
     final teachers = context.watch<TeacherProvider>();
     final announcements = context.watch<AnnouncementProvider>();
+    final classes = context.watch<ClassProvider>();
     final isWide = MediaQuery.of(context).size.width >= 720;
     final cs = Theme.of(context).colorScheme;
 
@@ -60,6 +62,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             context.read<StudentProvider>().loadAll(),
             context.read<TeacherProvider>().loadAll(),
             context.read<AnnouncementProvider>().load(),
+            context.read<ClassProvider>().loadAll(),
           ]);
         },
         child: ListView(
@@ -111,7 +114,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 StatCard(
                   label: 'Classes',
-                  value: '—',
+                  value: '${classes.classes.length}',
                   icon: Icons.class_,
                   color: Colors.purple,
                 ),

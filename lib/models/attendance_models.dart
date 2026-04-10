@@ -55,6 +55,81 @@ class StudentAttendance {
       };
 }
 
+// ─── Leave Request ────────────────────────────────────────────────────────────
+
+enum LeaveType { sick, personal, emergency, other }
+
+extension LeaveTypeExt on LeaveType {
+  String get value => ['sick', 'personal', 'emergency', 'other'][index];
+  String get label => ['Sick', 'Personal', 'Emergency', 'Other'][index];
+  static LeaveType fromString(String s) =>
+      LeaveType.values.firstWhere((e) => e.value == s, orElse: () => LeaveType.personal);
+}
+
+class LeaveRequest {
+  final String id;
+  final String requesterId;
+  final String requesterType; // 'teacher' | 'student'
+  final LeaveType leaveType;
+  final DateTime startDate;
+  final DateTime endDate;
+  final String reason;
+  final String status; // 'pending' | 'approved' | 'rejected'
+  final String? approvedBy;
+  final String? remarks;
+  final DateTime createdAt;
+
+  const LeaveRequest({
+    required this.id,
+    required this.requesterId,
+    required this.requesterType,
+    this.leaveType = LeaveType.personal,
+    required this.startDate,
+    required this.endDate,
+    required this.reason,
+    this.status = 'pending',
+    this.approvedBy,
+    this.remarks,
+    required this.createdAt,
+  });
+
+  int get durationDays => endDate.difference(startDate).inDays + 1;
+
+  int get statusColor {
+    switch (status) {
+      case 'approved': return 0xFF4CAF50;
+      case 'rejected': return 0xFFF44336;
+      default: return 0xFFFF9800;
+    }
+  }
+
+  factory LeaveRequest.fromJson(Map<String, dynamic> j) => LeaveRequest(
+        id: j['id'],
+        requesterId: j['requester_id'],
+        requesterType: j['requester_type'] ?? 'student',
+        leaveType: LeaveTypeExt.fromString(j['leave_type'] ?? 'personal'),
+        startDate: DateTime.parse(j['start_date']),
+        endDate: DateTime.parse(j['end_date']),
+        reason: j['reason'],
+        status: j['status'] ?? 'pending',
+        approvedBy: j['approved_by'],
+        remarks: j['remarks'],
+        createdAt: DateTime.parse(j['created_at']),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'requester_id': requesterId,
+        'requester_type': requesterType,
+        'leave_type': leaveType.value,
+        'start_date': startDate.toIso8601String().split('T')[0],
+        'end_date': endDate.toIso8601String().split('T')[0],
+        'reason': reason,
+        'status': status,
+        'approved_by': approvedBy,
+        'remarks': remarks,
+      };
+}
+
 enum StaffAttendanceStatus { present, absent, halfDay, onLeave }
 
 extension StaffAttendanceStatusExt on StaffAttendanceStatus {

@@ -308,6 +308,77 @@ class HostelRoom {
       };
 }
 
+// ─── Skills ───────────────────────────────────────────────────────────────────
+
+enum SkillCategory { sports, arts, academics, technology, other }
+
+extension SkillCategoryExt on SkillCategory {
+  String get value => ['sports', 'arts', 'academics', 'technology', 'other'][index];
+  String get label => ['Sports', 'Arts', 'Academics', 'Technology', 'Other'][index];
+  String get icon => ['⚽', '🎨', '📚', '💻', '🌟'][index];
+  int get colorValue =>
+      [0xFF4CAF50, 0xFFE91E63, 0xFF2196F3, 0xFF9C27B0, 0xFF607D8B][index];
+
+  static SkillCategory fromString(String s) =>
+      SkillCategory.values.firstWhere((e) => e.value == s,
+          orElse: () => SkillCategory.other);
+}
+
+enum SkillProficiency { beginner, intermediate, advanced, expert }
+
+extension SkillProficiencyExt on SkillProficiency {
+  String get value => ['beginner', 'intermediate', 'advanced', 'expert'][index];
+  String get label => ['Beginner', 'Intermediate', 'Advanced', 'Expert'][index];
+  int get colorValue =>
+      [0xFF9E9E9E, 0xFF2196F3, 0xFF4CAF50, 0xFFFF9800][index];
+
+  static SkillProficiency fromString(String s) =>
+      SkillProficiency.values.firstWhere((e) => e.value == s,
+          orElse: () => SkillProficiency.beginner);
+}
+
+class StudentSkill {
+  final String id;
+  final String studentId;
+  final String skillName;
+  final SkillCategory category;
+  final SkillProficiency proficiency;
+  final String? description;
+  final String? awardedBy;
+  final DateTime createdAt;
+
+  const StudentSkill({
+    required this.id,
+    required this.studentId,
+    required this.skillName,
+    this.category = SkillCategory.other,
+    this.proficiency = SkillProficiency.beginner,
+    this.description,
+    this.awardedBy,
+    required this.createdAt,
+  });
+
+  factory StudentSkill.fromJson(Map<String, dynamic> j) => StudentSkill(
+        id: j['id'],
+        studentId: j['student_id'],
+        skillName: j['skill_name'],
+        category: SkillCategoryExt.fromString(j['category'] ?? 'other'),
+        proficiency: SkillProficiencyExt.fromString(j['proficiency'] ?? 'beginner'),
+        description: j['description'],
+        awardedBy: j['awarded_by'],
+        createdAt: DateTime.parse(j['created_at']),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'student_id': studentId,
+        'skill_name': skillName,
+        'category': category.value,
+        'proficiency': proficiency.value,
+        'description': description,
+        'awarded_by': awardedBy,
+      };
+}
+
 // ─── Notification ─────────────────────────────────────────────────────────────
 
 class AppNotification {
@@ -340,6 +411,16 @@ class AppNotification {
       default: return 0xFF2196F3;
     }
   }
+
+  AppNotification copyWith({bool? isRead}) => AppNotification(
+        id: id,
+        recipientId: recipientId,
+        title: title,
+        message: message,
+        type: type,
+        isRead: isRead ?? this.isRead,
+        createdAt: createdAt,
+      );
 
   factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
         id: j['id'],

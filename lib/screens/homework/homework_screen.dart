@@ -107,6 +107,10 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                     if (titleCtrl.text.trim().isEmpty ||
                         selClass == null ||
                         selSubject == null) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                        content: Text('Title, class and subject are required'),
+                        behavior: SnackBarBehavior.floating,
+                      ));
                       return;
                     }
                     final data = {
@@ -122,12 +126,21 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                           dueDate.toIso8601String().split('T')[0],
                     };
                     Navigator.pop(ctx);
-                    if (existing == null) {
-                      await context.read<HomeworkProvider>().create(data);
-                    } else {
-                      await context
-                          .read<HomeworkProvider>()
-                          .update(existing.id, data);
+                    try {
+                      if (existing == null) {
+                        await context.read<HomeworkProvider>().create(data);
+                      } else {
+                        await context
+                            .read<HomeworkProvider>()
+                            .update(existing.id, data);
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Error saving homework: $e'),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      }
                     }
                   },
                   child: Text(existing == null
@@ -195,7 +208,12 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
           Expanded(
             child: provider.loading
                 ? const LoadingWidget()
-                : list.isEmpty
+                : provider.error != null
+                    ? AppErrorWidget(
+                        message: 'Failed to load homework.\n${provider.error}',
+                        onRetry: () => context.read<HomeworkProvider>().load(),
+                      )
+                    : list.isEmpty
                     ? EmptyState(
                         icon: Icons.book_outlined,
                         title: 'No homework assigned',

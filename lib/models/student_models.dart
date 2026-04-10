@@ -65,7 +65,9 @@ class Student {
         admissionNumber: j['admission_number'],
         firstName: j['first_name'],
         lastName: j['last_name'],
-        dateOfBirth: DateTime.parse(j['date_of_birth']),
+        dateOfBirth: j['date_of_birth'] != null
+            ? DateTime.tryParse(j['date_of_birth']) ?? DateTime(2010)
+            : DateTime(2010),
         gender: j['gender'],
         bloodGroup: j['blood_group'],
         address: j['address'],

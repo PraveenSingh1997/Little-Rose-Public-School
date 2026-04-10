@@ -17,19 +17,22 @@ class AuthProvider extends ChangeNotifier {
   UserProfile? _profile;
   bool _loading = false;
   String? _error;
+  bool _initialized = false;
 
   UserProfile? get profile => _profile;
   bool get loading => _loading;
   String? get error => _error;
   bool get isLoggedIn => _profile != null;
+  bool get initialized => _initialized;
   UserRole get role => _profile?.role ?? UserRole.student;
 
   Future<void> init() async {
     final user = _repo.currentUser;
     if (user != null) {
       _profile = await _repo.getProfile(user.id);
-      notifyListeners();
     }
+    _initialized = true;
+    notifyListeners();
   }
 
   Future<bool> signIn(String email, String password) async {
@@ -109,15 +112,22 @@ class StudentProvider extends ChangeNotifier {
   List<Student> _students = [];
   Student? _selectedStudent;
   bool _loading = false;
+  String? _error;
 
   List<Student> get students => _students;
   Student? get selectedStudent => _selectedStudent;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> loadAll({String? classId}) async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _students = await _repo.getAll(classId: classId, status: 'active');
+    try {
+      _students = await _repo.getAll(classId: classId, status: 'active');
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -178,14 +188,21 @@ class TeacherProvider extends ChangeNotifier {
   final _repo = TeacherRepository();
   List<Teacher> _teachers = [];
   bool _loading = false;
+  String? _error;
 
   List<Teacher> get teachers => _teachers;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> loadAll() async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _teachers = await _repo.getAll(status: 'active');
+    try {
+      _teachers = await _repo.getAll(status: 'active');
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -219,22 +236,45 @@ class ClassProvider extends ChangeNotifier {
   final _subjectRepo = SubjectRepository();
   List<SchoolClass> _classes = [];
   List<Subject> _subjects = [];
+  List<Subject> _classSubjects = []; // subjects filtered by selected class
   bool _loading = false;
+  String? _error;
 
   List<SchoolClass> get classes => _classes;
   List<Subject> get subjects => _subjects;
+  List<Subject> get classSubjects => _classSubjects;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> loadAll() async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    final results = await Future.wait([
-      _classRepo.getAll(),
-      _subjectRepo.getAll(),
-    ]);
-    _classes = results[0] as List<SchoolClass>;
-    _subjects = results[1] as List<Subject>;
+    try {
+      final results = await Future.wait([
+        _classRepo.getAll(),
+        _subjectRepo.getAll(),
+      ]);
+      _classes = results[0] as List<SchoolClass>;
+      _subjects = results[1] as List<Subject>;
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
+    notifyListeners();
+  }
+
+  Future<void> loadSubjectsForClass(String classId) async {
+    try {
+      _classSubjects = await _classRepo.getSubjectsForClass(classId);
+    } catch (_) {
+      _classSubjects = _subjects; // fallback to all subjects
+    }
+    notifyListeners();
+  }
+
+  void clearClassSubjects() {
+    _classSubjects = [];
     notifyListeners();
   }
 
@@ -297,17 +337,24 @@ class AttendanceProvider extends ChangeNotifier {
   final List<StaffAttendance> _staffRecords = [];
   List<LeaveRequest> _leaves = [];
   bool _loading = false;
+  String? _error;
 
   List<StudentAttendance> get records => _records;
   List<StaffAttendance> get staffRecords => _staffRecords;
   List<LeaveRequest> get leaves => _leaves;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> loadForClass(String classId, DateTime date, {String? subjectId}) async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _records = await _repo.getForClass(
-        classId: classId, date: date, subjectId: subjectId);
+    try {
+      _records = await _repo.getForClass(
+          classId: classId, date: date, subjectId: subjectId);
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -350,15 +397,22 @@ class ExamProvider extends ChangeNotifier {
   List<Exam> _exams = [];
   List<ExamResult> _results = [];
   bool _loading = false;
+  String? _error;
 
   List<Exam> get exams => _exams;
   List<ExamResult> get results => _results;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> loadExams({String? classId}) async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _exams = await _repo.getAll(classId: classId);
+    try {
+      _exams = await _repo.getAll(classId: classId);
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -406,16 +460,23 @@ class FeeProvider extends ChangeNotifier {
   List<FeePayment> _payments = [];
   Map<String, double> _summary = {};
   bool _loading = false;
+  String? _error;
 
   List<FeeStructure> get structures => _structures;
   List<FeePayment> get payments => _payments;
   Map<String, double> get summary => _summary;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> loadStructures() async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _structures = await _repo.getStructures();
+    try {
+      _structures = await _repo.getStructures();
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -423,6 +484,14 @@ class FeeProvider extends ChangeNotifier {
   Future<FeeStructure> createStructure(Map<String, dynamic> data) async {
     final s = await _repo.createStructure(data);
     _structures.add(s);
+    notifyListeners();
+    return s;
+  }
+
+  Future<FeeStructure> updateStructure(String id, Map<String, dynamic> data) async {
+    final s = await _repo.updateStructure(id, data);
+    final idx = _structures.indexWhere((x) => x.id == id);
+    if (idx != -1) _structures[idx] = s;
     notifyListeners();
     return s;
   }
@@ -435,8 +504,13 @@ class FeeProvider extends ChangeNotifier {
 
   Future<void> loadPayments({String? studentId}) async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _payments = await _repo.getPayments(studentId: studentId);
+    try {
+      _payments = await _repo.getPayments(studentId: studentId);
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -460,14 +534,21 @@ class AnnouncementProvider extends ChangeNotifier {
   final _repo = AnnouncementRepository();
   List<Announcement> _announcements = [];
   bool _loading = false;
+  String? _error;
 
   List<Announcement> get announcements => _announcements;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> load({String? audience}) async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _announcements = await _repo.getAll(audience: audience);
+    try {
+      _announcements = await _repo.getAll(audience: audience);
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -501,15 +582,22 @@ class LibraryProvider extends ChangeNotifier {
   List<Book> _books = [];
   List<BookIssue> _activeIssues = [];
   bool _loading = false;
+  String? _error;
 
   List<Book> get books => _books;
   List<BookIssue> get activeIssues => _activeIssues;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> loadBooks({String? search}) async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _books = await _repo.getBooks(search: search);
+    try {
+      _books = await _repo.getBooks(search: search);
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -577,15 +665,7 @@ class NotificationProvider extends ChangeNotifier {
     await _repo.markRead(id);
     final idx = _notifications.indexWhere((n) => n.id == id);
     if (idx != -1) {
-      _notifications[idx] = AppNotification(
-        id: _notifications[idx].id,
-        recipientId: _notifications[idx].recipientId,
-        title: _notifications[idx].title,
-        message: _notifications[idx].message,
-        type: _notifications[idx].type,
-        isRead: true,
-        createdAt: _notifications[idx].createdAt,
-      );
+      _notifications[idx] = _notifications[idx].copyWith(isRead: true);
       _unreadCount = _notifications.where((n) => !n.isRead).length;
       notifyListeners();
     }
@@ -593,17 +673,7 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> markAllRead(String userId) async {
     await _repo.markAllRead(userId);
-    _notifications = _notifications
-        .map((n) => AppNotification(
-              id: n.id,
-              recipientId: n.recipientId,
-              title: n.title,
-              message: n.message,
-              type: n.type,
-              isRead: true,
-              createdAt: n.createdAt,
-            ))
-        .toList();
+    _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
     _unreadCount = 0;
     notifyListeners();
   }
@@ -615,14 +685,21 @@ class TransportProvider extends ChangeNotifier {
   final _repo = TransportRepository();
   List<BusRoute> _routes = [];
   bool _loading = false;
+  String? _error;
 
   List<BusRoute> get routes => _routes;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> load() async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _routes = await _repo.getRoutes();
+    try {
+      _routes = await _repo.getRoutes();
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -653,14 +730,21 @@ class HostelProvider extends ChangeNotifier {
   final _repo = HostelRepository();
   List<HostelRoom> _rooms = [];
   bool _loading = false;
+  String? _error;
 
   List<HostelRoom> get rooms => _rooms;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> load() async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _rooms = await _repo.getRooms();
+    try {
+      _rooms = await _repo.getRooms();
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }
@@ -679,20 +763,33 @@ class HostelProvider extends ChangeNotifier {
     notifyListeners();
     return r;
   }
+
+  Future<void> delete(String id) async {
+    await _repo.delete(id);
+    _rooms.removeWhere((r) => r.id == id);
+    notifyListeners();
+  }
 }
 
 class HomeworkProvider extends ChangeNotifier {
   final _repo = HomeworkRepository();
   List<Homework> _homework = [];
   bool _loading = false;
+  String? _error;
 
   List<Homework> get homework => _homework;
   bool get loading => _loading;
+  String? get error => _error;
 
   Future<void> load({String? classId}) async {
     _loading = true;
+    _error = null;
     notifyListeners();
-    _homework = await _repo.getAll(classId: classId);
+    try {
+      _homework = await _repo.getAll(classId: classId);
+    } catch (e) {
+      _error = e.toString();
+    }
     _loading = false;
     notifyListeners();
   }

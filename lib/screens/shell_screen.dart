@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/auth_models.dart';
@@ -47,22 +46,22 @@ const _allRoles = {
 };
 
 final _navItems = [
-  _NavItem(index: 0, label: 'Dashboard', icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, roles: _allRoles),
-  _NavItem(index: 1, label: 'Students', icon: Icons.people_outline, selectedIcon: Icons.people, roles: {UserRole.admin, UserRole.teacher}),
-  _NavItem(index: 2, label: 'Teachers', icon: Icons.school_outlined, selectedIcon: Icons.school, roles: {UserRole.admin}),
-  _NavItem(index: 3, label: 'Classes', icon: Icons.class_outlined, selectedIcon: Icons.class_, roles: {UserRole.admin, UserRole.teacher}),
-  _NavItem(index: 4, label: 'Subjects', icon: Icons.menu_book_outlined, selectedIcon: Icons.menu_book, roles: {UserRole.admin, UserRole.teacher}),
-  _NavItem(index: 5, label: 'Timetable', icon: Icons.schedule_outlined, selectedIcon: Icons.schedule, roles: {UserRole.admin, UserRole.teacher, UserRole.student}),
-  _NavItem(index: 6, label: 'Attendance', icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, roles: _allRoles),
-  _NavItem(index: 7, label: 'Exams', icon: Icons.assignment_outlined, selectedIcon: Icons.assignment, roles: _allRoles),
-  _NavItem(index: 8, label: 'Fee Management', icon: Icons.payments_outlined, selectedIcon: Icons.payments, roles: {UserRole.admin, UserRole.student, UserRole.parent}),
-  _NavItem(index: 9, label: 'Library', icon: Icons.local_library_outlined, selectedIcon: Icons.local_library, roles: {UserRole.admin, UserRole.teacher, UserRole.student}),
-  _NavItem(index: 10, label: 'Transport', icon: Icons.directions_bus_outlined, selectedIcon: Icons.directions_bus, roles: {UserRole.admin, UserRole.student, UserRole.parent}),
-  _NavItem(index: 11, label: 'Hostel', icon: Icons.hotel_outlined, selectedIcon: Icons.hotel, roles: {UserRole.admin, UserRole.student}),
-  _NavItem(index: 12, label: 'Homework', icon: Icons.book_outlined, selectedIcon: Icons.book, roles: {UserRole.admin, UserRole.teacher, UserRole.student}),
-  _NavItem(index: 13, label: 'Announcements', icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, roles: _allRoles),
-  _NavItem(index: 14, label: 'Notifications', icon: Icons.notifications_outlined, selectedIcon: Icons.notifications, roles: _allRoles),
-  _NavItem(index: 15, label: 'My Profile', icon: Icons.person_outline, selectedIcon: Icons.person, roles: _allRoles),
+  const _NavItem(index: 0, label: 'Dashboard', icon: Icons.dashboard_outlined, selectedIcon: Icons.dashboard, roles: _allRoles),
+  const _NavItem(index: 1, label: 'Students', icon: Icons.people_outline, selectedIcon: Icons.people, roles: {UserRole.admin, UserRole.teacher}),
+  const _NavItem(index: 2, label: 'Teachers', icon: Icons.school_outlined, selectedIcon: Icons.school, roles: {UserRole.admin}),
+  const _NavItem(index: 3, label: 'Classes', icon: Icons.class_outlined, selectedIcon: Icons.class_, roles: {UserRole.admin, UserRole.teacher}),
+  const _NavItem(index: 4, label: 'Subjects', icon: Icons.menu_book_outlined, selectedIcon: Icons.menu_book, roles: {UserRole.admin, UserRole.teacher}),
+  const _NavItem(index: 5, label: 'Timetable', icon: Icons.schedule_outlined, selectedIcon: Icons.schedule, roles: {UserRole.admin, UserRole.teacher, UserRole.student}),
+  const _NavItem(index: 6, label: 'Attendance', icon: Icons.fact_check_outlined, selectedIcon: Icons.fact_check, roles: _allRoles),
+  const _NavItem(index: 7, label: 'Exams', icon: Icons.assignment_outlined, selectedIcon: Icons.assignment, roles: _allRoles),
+  const _NavItem(index: 8, label: 'Fee Management', icon: Icons.payments_outlined, selectedIcon: Icons.payments, roles: {UserRole.admin, UserRole.student, UserRole.parent}),
+  const _NavItem(index: 9, label: 'Library', icon: Icons.local_library_outlined, selectedIcon: Icons.local_library, roles: {UserRole.admin, UserRole.teacher, UserRole.student}),
+  const _NavItem(index: 10, label: 'Transport', icon: Icons.directions_bus_outlined, selectedIcon: Icons.directions_bus, roles: {UserRole.admin, UserRole.student, UserRole.parent}),
+  const _NavItem(index: 11, label: 'Hostel', icon: Icons.hotel_outlined, selectedIcon: Icons.hotel, roles: {UserRole.admin, UserRole.student}),
+  const _NavItem(index: 12, label: 'Homework', icon: Icons.book_outlined, selectedIcon: Icons.book, roles: {UserRole.admin, UserRole.teacher, UserRole.student}),
+  const _NavItem(index: 13, label: 'Announcements', icon: Icons.campaign_outlined, selectedIcon: Icons.campaign, roles: _allRoles),
+  const _NavItem(index: 14, label: 'Notifications', icon: Icons.notifications_outlined, selectedIcon: Icons.notifications, roles: _allRoles),
+  const _NavItem(index: 15, label: 'My Profile', icon: Icons.person_outline, selectedIcon: Icons.person, roles: _allRoles),
 ];
 
 class ShellScreen extends StatefulWidget {
@@ -77,6 +76,8 @@ class ShellScreen extends StatefulWidget {
 
 class _ShellScreenState extends State<ShellScreen> {
   int _selectedIndex = 0;
+  // Tracks which screen indices have been visited so we only build them lazily
+  final Set<int> _visited = {0};
 
   Widget _screenForIndex(int index) {
     switch (index) {
@@ -100,6 +101,13 @@ class _ShellScreenState extends State<ShellScreen> {
     }
   }
 
+  void _navigate(int index) {
+    setState(() {
+      _selectedIndex = index;
+      _visited.add(index);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -115,7 +123,7 @@ class _ShellScreenState extends State<ShellScreen> {
     Widget drawer = NavigationDrawer(
       selectedIndex: visibleItems.indexWhere((i) => i.index == _selectedIndex),
       onDestinationSelected: (i) {
-        setState(() => _selectedIndex = visibleItems[i].index);
+        _navigate(visibleItems[i].index);
         if (!isWide) Navigator.pop(context);
       },
       children: [
@@ -214,7 +222,12 @@ class _ShellScreenState extends State<ShellScreen> {
             Expanded(
               child: IndexedStack(
                 index: _selectedIndex,
-                children: List.generate(16, _screenForIndex),
+                children: List.generate(
+                  16,
+                  (i) => _visited.contains(i)
+                      ? _screenForIndex(i)
+                      : const SizedBox.shrink(),
+                ),
               ),
             ),
           ],
@@ -227,7 +240,12 @@ class _ShellScreenState extends State<ShellScreen> {
       drawer: drawer,
       body: IndexedStack(
         index: _selectedIndex,
-        children: List.generate(16, _screenForIndex),
+        children: List.generate(
+          16,
+          (i) => _visited.contains(i)
+              ? _screenForIndex(i)
+              : const SizedBox.shrink(),
+        ),
       ),
     );
   }

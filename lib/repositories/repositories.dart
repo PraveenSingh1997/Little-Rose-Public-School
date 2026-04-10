@@ -438,9 +438,11 @@ class FeeRepository {
 // ─── Announcement Repository ──────────────────────────────────────────────────
 
 class AnnouncementRepository {
+  static const _validAudiences = {'students', 'teachers', 'parents', 'all'};
+
   Future<List<Announcement>> getAll({String? audience}) async {
     var query = _db.from('announcements').select();
-    if (audience != null && audience != 'all') {
+    if (audience != null && audience != 'all' && _validAudiences.contains(audience)) {
       query = query.or('target_audience.eq.all,target_audience.eq.$audience');
     }
     final data = await query.order('is_pinned', ascending: false).order('published_at', ascending: false);
@@ -609,6 +611,8 @@ class HostelRepository {
     final res = await _db.from('hostel_rooms').update(data).eq('id', id).select().single();
     return HostelRoom.fromJson(res);
   }
+
+  Future<void> delete(String id) => _db.from('hostel_rooms').delete().eq('id', id);
 
   Future<void> allocateStudent(String studentId, String roomId) async {
     await _db.from('student_hostel').upsert({

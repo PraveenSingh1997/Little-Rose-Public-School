@@ -93,6 +93,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   onPressed: () async {
                     if (titleCtrl.text.trim().isEmpty ||
                         contentCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                        content: Text('Title and content are required'),
+                        behavior: SnackBarBehavior.floating,
+                      ));
                       return;
                     }
                     final data = {
@@ -103,9 +107,18 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       'published_at': DateTime.now().toIso8601String(),
                     };
                     Navigator.pop(ctx);
-                    await context
-                        .read<AnnouncementProvider>()
-                        .create(data);
+                    try {
+                      await context
+                          .read<AnnouncementProvider>()
+                          .create(data);
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Error posting announcement: $e'),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      }
+                    }
                   },
                   child: const Text('Post Announcement'),
                 ),
@@ -144,7 +157,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           : null,
       body: provider.loading
           ? const LoadingWidget()
-          : provider.announcements.isEmpty
+          : provider.error != null
+              ? AppErrorWidget(
+                  message: 'Failed to load announcements.\n${provider.error}',
+                  onRetry: () => context.read<AnnouncementProvider>().load(),
+                )
+              : provider.announcements.isEmpty
               ? EmptyState(
                   icon: Icons.campaign_outlined,
                   title: 'No announcements',

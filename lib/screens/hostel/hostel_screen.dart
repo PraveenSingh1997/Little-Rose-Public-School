@@ -92,7 +92,13 @@ class _HostelScreenState extends State<HostelScreen> {
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: () async {
-                    if (roomCtrl.text.trim().isEmpty) return;
+                    if (roomCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                        content: Text('Room number is required'),
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                      return;
+                    }
                     final data = {
                       'room_number': roomCtrl.text.trim(),
                       'floor': int.tryParse(floorCtrl.text.trim()) ?? 1,
@@ -103,12 +109,21 @@ class _HostelScreenState extends State<HostelScreen> {
                           double.tryParse(feeCtrl.text.trim()) ?? 0,
                     };
                     Navigator.pop(ctx);
-                    if (existing == null) {
-                      await context.read<HostelProvider>().create(data);
-                    } else {
-                      await context
-                          .read<HostelProvider>()
-                          .update(existing.id, data);
+                    try {
+                      if (existing == null) {
+                        await context.read<HostelProvider>().create(data);
+                      } else {
+                        await context
+                            .read<HostelProvider>()
+                            .update(existing.id, data);
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Error saving room: $e'),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      }
                     }
                   },
                   child: Text(
@@ -149,7 +164,12 @@ class _HostelScreenState extends State<HostelScreen> {
           : null,
       body: provider.loading
           ? const LoadingWidget()
-          : provider.rooms.isEmpty
+          : provider.error != null
+              ? AppErrorWidget(
+                  message: 'Failed to load hostel rooms.\n${provider.error}',
+                  onRetry: () => context.read<HostelProvider>().load(),
+                )
+              : provider.rooms.isEmpty
               ? EmptyState(
                   icon: Icons.hotel_outlined,
                   title: 'No hostel rooms',
@@ -178,9 +198,30 @@ class _HostelScreenState extends State<HostelScreen> {
                             'Floor ${r.floor}  •  ${r.roomType}  •  ${r.occupied}/${r.capacity} occupied\n₹${r.monthlyFee.toStringAsFixed(0)}/month'),
                         isThreeLine: true,
                         trailing: isAdmin
-                            ? IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () => _showForm(r),
+                            ? PopupMenuButton<String>(
+                                onSelected: (v) async {
+                                  if (v == 'edit') {
+                                    _showForm(r);
+                                  } else {
+                                    final ok = await showConfirmDialog(
+                                        context,
+                                        title: 'Delete Room',
+                                        message:
+                                            'Delete Room ${r.roomNumber}? This cannot be undone.');
+                                    if (ok == true && context.mounted) {
+                                      await context
+                                          .read<HostelProvider>()
+                                          .delete(r.id);
+                                    }
+                                  }
+                                },
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                      value: 'edit', child: Text('Edit')),
+                                  PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text('Delete')),
+                                ],
                               )
                             : null,
                       ),

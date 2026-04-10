@@ -24,6 +24,7 @@ class _FeesScreenState extends State<FeesScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<FeeProvider>().loadStructures();
       context.read<FeeProvider>().loadPayments();
+      context.read<StudentProvider>().loadAll();
     });
   }
 
@@ -33,10 +34,163 @@ class _FeesScreenState extends State<FeesScreen>
     super.dispose();
   }
 
+  // ── Add / Edit Fee Structure ─────────────────────────────────────────────────
+  void _showStructureForm([FeeStructure? existing]) {
+    final classProvider = context.read<ClassProvider>();
+    if (classProvider.classes.isEmpty) classProvider.loadAll();
+
+    final nameCtrl = TextEditingController(text: existing?.name);
+    final amountCtrl = TextEditingController(
+        text: existing != null ? existing.amount.toStringAsFixed(0) : '');
+    final yearCtrl = TextEditingController(
+        text: existing?.academicYear ?? '2024-25');
+    FeeType selType = existing?.feeType ?? FeeType.tuition;
+    String selFreq = existing?.frequency ?? 'monthly';
+    String? selClass = existing?.classId;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+            24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
+        child: StatefulBuilder(builder: (ctx, setS) {
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  existing == null ? 'Add Fee Structure' : 'Edit Fee Structure',
+                  style: Theme.of(ctx).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameCtrl,
+                  decoration:
+                      const InputDecoration(labelText: 'Structure Name *'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<FeeType>(
+                  key: ValueKey(selType),
+                  initialValue: selType,
+                  decoration: const InputDecoration(labelText: 'Fee Type *'),
+                  items: FeeType.values
+                      .map((t) => DropdownMenuItem(
+                          value: t, child: Text(t.label)))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setS(() => selType = v);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amountCtrl,
+                  decoration: const InputDecoration(labelText: 'Amount (₹) *'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(selFreq),
+                  initialValue: selFreq,
+                  decoration: const InputDecoration(labelText: 'Frequency'),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'monthly', child: Text('Monthly')),
+                    DropdownMenuItem(
+                        value: 'quarterly', child: Text('Quarterly')),
+                    DropdownMenuItem(
+                        value: 'annually', child: Text('Annually')),
+                    DropdownMenuItem(
+                        value: 'one_time', child: Text('One Time')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setS(() => selFreq = v);
+                  },
+                ),
+                const SizedBox(height: 12),
+                Consumer<ClassProvider>(builder: (_, cp, __) {
+                  return DropdownButtonFormField<String>(
+                    key: ValueKey(selClass),
+                    initialValue: selClass,
+                    decoration: const InputDecoration(
+                        labelText: 'Class (leave blank for all)'),
+                    items: [
+                      const DropdownMenuItem(
+                          value: null, child: Text('All Classes')),
+                      ...cp.classes.map((c) => DropdownMenuItem(
+                          value: c.id, child: Text(c.displayName))),
+                    ],
+                    onChanged: (v) => setS(() => selClass = v),
+                  );
+                }),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: yearCtrl,
+                  decoration:
+                      const InputDecoration(labelText: 'Academic Year'),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: () async {
+                    if (nameCtrl.text.trim().isEmpty ||
+                        amountCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                        content: Text('Structure name and amount are required'),
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                      return;
+                    }
+                    final data = {
+                      'name': nameCtrl.text.trim(),
+                      'fee_type': selType.value,
+                      'amount':
+                          double.tryParse(amountCtrl.text.trim()) ?? 0,
+                      'frequency': selFreq,
+                      'academic_year': yearCtrl.text.trim().isEmpty
+                          ? '2024-25'
+                          : yearCtrl.text.trim(),
+                      if (selClass != null) 'class_id': selClass,
+                    };
+                    Navigator.pop(ctx);
+                    try {
+                      if (existing == null) {
+                        await context.read<FeeProvider>().createStructure(data);
+                      } else {
+                        await context
+                            .read<FeeProvider>()
+                            .updateStructure(existing.id, data);
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Error saving fee structure: $e'),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      }
+                    }
+                  },
+                  child: Text(existing == null
+                      ? 'Add Structure'
+                      : 'Save Changes'),
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  // ── Collect Fee ───────────────────────────────────────────────────────────────
   void _showCollectForm() {
-    final provider = context.read<FeeProvider>();
+    final feeProvider = context.read<FeeProvider>();
+    final students = context.read<StudentProvider>().students;
+
     final amountCtrl = TextEditingController();
-    final studentCtrl = TextEditingController();
+    String? selStudent;
     String? selStructure;
     String selMethod = 'cash';
 
@@ -57,28 +211,52 @@ class _FeesScreenState extends State<FeesScreen>
                 Text('Collect Fee',
                     style: Theme.of(ctx).textTheme.titleLarge),
                 const SizedBox(height: 16),
-                TextField(
-                    controller: studentCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Student ID *')),
+                // Student picker
+                DropdownButtonFormField<String>(
+                  key: ValueKey(selStudent),
+                  initialValue: selStudent,
+                  decoration:
+                      const InputDecoration(labelText: 'Student *'),
+                  items: students
+                      .map((s) => DropdownMenuItem(
+                          value: s.id,
+                          child: Text(
+                              '${s.fullName} (${s.rollNumber})')))
+                      .toList(),
+                  onChanged: (v) => setS(() => selStudent = v),
+                ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   key: ValueKey(selStructure),
                   initialValue: selStructure,
                   decoration:
                       const InputDecoration(labelText: 'Fee Type'),
-                  items: provider.structures
-                      .map((s) => DropdownMenuItem(
-                          value: s.id, child: Text(s.name)))
-                      .toList(),
-                  onChanged: (v) => setS(() => selStructure = v),
+                  items: [
+                    const DropdownMenuItem(
+                        value: null, child: Text('— Select fee type —')),
+                    ...feeProvider.structures.map((s) => DropdownMenuItem(
+                        value: s.id, child: Text(s.name))),
+                  ],
+                  onChanged: (v) {
+                    setS(() => selStructure = v);
+                    if (v != null) {
+                      final struct = feeProvider.structures
+                          .where((s) => s.id == v)
+                          .firstOrNull;
+                      if (struct != null) {
+                        amountCtrl.text =
+                            struct.amount.toStringAsFixed(0);
+                      }
+                    }
+                  },
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                    controller: amountCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Amount *'),
-                    keyboardType: TextInputType.number),
+                  controller: amountCtrl,
+                  decoration:
+                      const InputDecoration(labelText: 'Amount (₹) *'),
+                  keyboardType: TextInputType.number,
+                ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   key: ValueKey(selMethod),
@@ -91,6 +269,8 @@ class _FeesScreenState extends State<FeesScreen>
                         value: 'online', child: Text('Online')),
                     DropdownMenuItem(
                         value: 'cheque', child: Text('Cheque')),
+                    DropdownMenuItem(
+                        value: 'card', child: Text('Card')),
                   ],
                   onChanged: (v) {
                     if (v != null) setS(() => selMethod = v);
@@ -99,12 +279,16 @@ class _FeesScreenState extends State<FeesScreen>
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: () async {
-                    if (studentCtrl.text.trim().isEmpty ||
+                    if (selStudent == null ||
                         amountCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                        content: Text('Student and amount are required'),
+                        behavior: SnackBarBehavior.floating,
+                      ));
                       return;
                     }
                     final data = {
-                      'student_id': studentCtrl.text.trim(),
+                      'student_id': selStudent,
                       if (selStructure != null)
                         'fee_structure_id': selStructure,
                       'amount_paid':
@@ -116,7 +300,16 @@ class _FeesScreenState extends State<FeesScreen>
                       'status': 'paid',
                     };
                     Navigator.pop(ctx);
-                    await context.read<FeeProvider>().collectFee(data);
+                    try {
+                      await context.read<FeeProvider>().collectFee(data);
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Error collecting fee: $e'),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      }
+                    }
                   },
                   child: const Text('Collect Payment'),
                 ),
@@ -149,51 +342,115 @@ class _FeesScreenState extends State<FeesScreen>
           controller: _tab,
           tabs: const [Tab(text: 'Structures'), Tab(text: 'Payments')],
         ),
-      ),
-      floatingActionButton: isAdmin
-          ? FloatingActionButton.extended(
+        actions: [
+          if (isAdmin)
+            TextButton.icon(
               onPressed: _showCollectForm,
               icon: const Icon(Icons.payments),
-              label: const Text('Collect Fee'),
+              label: const Text('Collect'),
+            ),
+        ],
+      ),
+      floatingActionButton: isAdmin && _tab.index == 0
+          ? FloatingActionButton.extended(
+              onPressed: () => _showStructureForm(),
+              icon: const Icon(Icons.add),
+              label: const Text('Add Structure'),
             )
           : null,
       body: TabBarView(
         controller: _tab,
         children: [
-          // Structures tab
+          // ── Structures tab ──────────────────────────────────────────────────
           provider.loading
               ? const LoadingWidget()
-              : provider.structures.isEmpty
-                  ? const EmptyState(
-                      icon: Icons.payments_outlined,
-                      title: 'No fee structures',
+              : provider.error != null
+                  ? AppErrorWidget(
+                      message:
+                          'Failed to load structures.\n${provider.error}',
+                      onRetry: () =>
+                          context.read<FeeProvider>().loadStructures(),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: provider.structures.length,
-                      itemBuilder: (ctx, i) {
-                        final s = provider.structures[i];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: const CircleAvatar(
-                                child: Icon(Icons.payments)),
-                            title: Text(s.name),
-                            subtitle: Text(
-                                '${s.feeType.label}  •  ${s.academicYear}'),
-                            trailing: Text(
-                              '₹${s.amount.toStringAsFixed(0)}',
-                              style: Theme.of(ctx)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                      fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-          // Payments tab
+                  : provider.structures.isEmpty
+                      ? EmptyState(
+                          icon: Icons.payments_outlined,
+                          title: 'No fee structures',
+                          onButton:
+                              isAdmin ? () => _showStructureForm() : null,
+                          buttonLabel: 'Add Structure',
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: provider.structures.length,
+                          itemBuilder: (ctx, i) {
+                            final s = provider.structures[i];
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: const CircleAvatar(
+                                    child: Icon(Icons.payments)),
+                                title: Text(s.name),
+                                subtitle: Text(
+                                    '${s.feeType.label}  •  ${s.frequency}  •  ${s.academicYear}'),
+                                trailing: isAdmin
+                                    ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '₹${s.amount.toStringAsFixed(0)}',
+                                            style: Theme.of(ctx)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            onSelected: (v) async {
+                                              if (v == 'edit') {
+                                                _showStructureForm(s);
+                                              } else {
+                                                final ok =
+                                                    await showConfirmDialog(
+                                                        context,
+                                                        title:
+                                                            'Delete Structure',
+                                                        message:
+                                                            'Delete "${s.name}"?');
+                                                if (ok == true &&
+                                                    context.mounted) {
+                                                  await context
+                                                      .read<FeeProvider>()
+                                                      .deleteStructure(
+                                                          s.id);
+                                                }
+                                              }
+                                            },
+                                            itemBuilder: (_) => const [
+                                              PopupMenuItem(
+                                                  value: 'edit',
+                                                  child: Text('Edit')),
+                                              PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Text('Delete')),
+                                            ],
+                                          ),
+                                        ],
+                                      )
+                                    : Text(
+                                        '₹${s.amount.toStringAsFixed(0)}',
+                                        style: Theme.of(ctx)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.bold),
+                                      ),
+                              ),
+                            );
+                          },
+                        ),
+
+          // ── Payments tab ────────────────────────────────────────────────────
           provider.loading
               ? const LoadingWidget()
               : provider.payments.isEmpty

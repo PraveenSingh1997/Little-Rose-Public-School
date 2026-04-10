@@ -35,15 +35,26 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkAuth() async {
-    // Wait for animation + a short buffer for AuthProvider.init() to complete
-    await Future.delayed(const Duration(milliseconds: 1800));
-    if (!mounted) return;
+    // Wait for animation and for AuthProvider.init() to complete (whichever is longer)
     final auth = context.read<AuthProvider>();
+    await Future.wait([
+      Future.delayed(const Duration(milliseconds: 900)),
+      _waitForInit(auth),
+    ]);
+    if (!mounted) return;
     if (auth.isLoggedIn) {
       context.go('/dashboard');
     } else {
       context.go('/login');
     }
+  }
+
+  Future<void> _waitForInit(AuthProvider auth) async {
+    if (auth.initialized) return;
+    await Future.doWhile(() async {
+      await Future.delayed(const Duration(milliseconds: 50));
+      return !auth.initialized;
+    });
   }
 
   @override

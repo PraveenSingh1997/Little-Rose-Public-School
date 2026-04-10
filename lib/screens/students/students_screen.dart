@@ -118,6 +118,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
                     if (firstCtrl.text.trim().isEmpty ||
                         lastCtrl.text.trim().isEmpty ||
                         rollCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                        content: Text('First name, last name and roll number are required'),
+                        behavior: SnackBarBehavior.floating,
+                      ));
                       return;
                     }
                     final data = {
@@ -137,12 +141,21 @@ class _StudentsScreenState extends State<StudentsScreen> {
                         'parent_phone': parentPhoneCtrl.text.trim(),
                     };
                     Navigator.pop(ctx);
-                    if (existing == null) {
-                      await context.read<StudentProvider>().create(data);
-                    } else {
-                      await context
-                          .read<StudentProvider>()
-                          .update(existing.id, data);
+                    try {
+                      if (existing == null) {
+                        await context.read<StudentProvider>().create(data);
+                      } else {
+                        await context
+                            .read<StudentProvider>()
+                            .update(existing.id, data);
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Error saving student: $e'),
+                          behavior: SnackBarBehavior.floating,
+                        ));
+                      }
                     }
                   },
                   child: Text(
@@ -200,7 +213,12 @@ class _StudentsScreenState extends State<StudentsScreen> {
           Expanded(
             child: provider.loading
                 ? const LoadingWidget()
-                : list.isEmpty
+                : provider.error != null
+                    ? AppErrorWidget(
+                        message: 'Failed to load students.\n${provider.error}',
+                        onRetry: () => context.read<StudentProvider>().loadAll(),
+                      )
+                    : list.isEmpty
                     ? EmptyState(
                         icon: Icons.people_outline,
                         title: 'No students found',

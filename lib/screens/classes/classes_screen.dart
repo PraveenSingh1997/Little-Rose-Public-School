@@ -74,6 +74,10 @@ class _ClassesScreenState extends State<ClassesScreen> {
               onPressed: () async {
                 if (nameCtrl.text.trim().isEmpty ||
                     gradeCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                    content: Text('Class name and grade level are required'),
+                    behavior: SnackBarBehavior.floating,
+                  ));
                   return;
                 }
                 final data = {
@@ -90,12 +94,21 @@ class _ClassesScreenState extends State<ClassesScreen> {
                       : yearCtrl.text.trim(),
                 };
                 Navigator.pop(ctx);
-                if (existing == null) {
-                  await context.read<ClassProvider>().createClass(data);
-                } else {
-                  await context
-                      .read<ClassProvider>()
-                      .updateClass(existing.id, data);
+                try {
+                  if (existing == null) {
+                    await context.read<ClassProvider>().createClass(data);
+                  } else {
+                    await context
+                        .read<ClassProvider>()
+                        .updateClass(existing.id, data);
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error saving class: $e'),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  }
                 }
               },
               child:

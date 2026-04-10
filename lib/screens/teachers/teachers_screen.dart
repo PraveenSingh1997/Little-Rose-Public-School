@@ -96,6 +96,10 @@ class _TeachersScreenState extends State<TeachersScreen> {
                   if (firstCtrl.text.trim().isEmpty ||
                       lastCtrl.text.trim().isEmpty ||
                       empCtrl.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                      content: Text('First name, last name and employee ID are required'),
+                      behavior: SnackBarBehavior.floating,
+                    ));
                     return;
                   }
                   final data = {
@@ -116,12 +120,21 @@ class _TeachersScreenState extends State<TeachersScreen> {
                       'specialization': specCtrl.text.trim(),
                   };
                   Navigator.pop(ctx);
-                  if (existing == null) {
-                    await context.read<TeacherProvider>().create(data);
-                  } else {
-                    await context
-                        .read<TeacherProvider>()
-                        .update(existing.id, data);
+                  try {
+                    if (existing == null) {
+                      await context.read<TeacherProvider>().create(data);
+                    } else {
+                      await context
+                          .read<TeacherProvider>()
+                          .update(existing.id, data);
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error saving teacher: $e'),
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                    }
                   }
                 },
                 child: Text(
@@ -183,7 +196,12 @@ class _TeachersScreenState extends State<TeachersScreen> {
           Expanded(
             child: provider.loading
                 ? const LoadingWidget()
-                : list.isEmpty
+                : provider.error != null
+                    ? AppErrorWidget(
+                        message: 'Failed to load teachers.\n${provider.error}',
+                        onRetry: () => context.read<TeacherProvider>().loadAll(),
+                      )
+                    : list.isEmpty
                     ? EmptyState(
                         icon: Icons.school_outlined,
                         title: 'No teachers found',

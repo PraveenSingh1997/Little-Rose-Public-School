@@ -84,6 +84,10 @@ class _TransportScreenState extends State<TransportScreen> {
                 onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty ||
                       numCtrl.text.trim().isEmpty) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                      content: Text('Route name and number are required'),
+                      behavior: SnackBarBehavior.floating,
+                    ));
                     return;
                   }
                   final data = {
@@ -99,12 +103,21 @@ class _TransportScreenState extends State<TransportScreen> {
                         double.tryParse(feeCtrl.text.trim()) ?? 0,
                   };
                   Navigator.pop(ctx);
-                  if (existing == null) {
-                    await context.read<TransportProvider>().create(data);
-                  } else {
-                    await context
-                        .read<TransportProvider>()
-                        .update(existing.id, data);
+                  try {
+                    if (existing == null) {
+                      await context.read<TransportProvider>().create(data);
+                    } else {
+                      await context
+                          .read<TransportProvider>()
+                          .update(existing.id, data);
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Error saving route: $e'),
+                        behavior: SnackBarBehavior.floating,
+                      ));
+                    }
                   }
                 },
                 child: Text(
@@ -144,7 +157,12 @@ class _TransportScreenState extends State<TransportScreen> {
           : null,
       body: provider.loading
           ? const LoadingWidget()
-          : provider.routes.isEmpty
+          : provider.error != null
+              ? AppErrorWidget(
+                  message: 'Failed to load routes.\n${provider.error}',
+                  onRetry: () => context.read<TransportProvider>().load(),
+                )
+              : provider.routes.isEmpty
               ? EmptyState(
                   icon: Icons.directions_bus_outlined,
                   title: 'No bus routes',
