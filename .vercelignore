@@ -1,0 +1,25 @@
+# Flutter build artifacts (Vercel builds from source)
+build/
+.dart_tool/
+.pub-cache/
+.pub/
+
+# Android / iOS / Windows native (not needed for web)
+android/
+ios/
+windows/
+linux/
+macos/
+
+# Sensitive credentials — NEVER deploy this
+lib/config/supabase_config.dart
+
+# Dev tooling
+.claude/
+graphify-out/
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
