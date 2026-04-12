@@ -5,6 +5,7 @@ import '../../models/finance_models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
 import '../shell_screen.dart';
+import 'fee_ocr_sheet.dart';
 
 class FeesScreen extends StatefulWidget {
   const FeesScreen({super.key});
@@ -190,9 +191,12 @@ class _FeesScreenState extends State<FeesScreen>
     final students = context.read<StudentProvider>().students;
 
     final amountCtrl = TextEditingController();
+    final txnCtrl = TextEditingController();
+    final rcptCtrl = TextEditingController();
     String? selStudent;
     String? selStructure;
     String selMethod = 'cash';
+    DateTime selDate = DateTime.now();
 
     showModalBottomSheet(
       context: context,
@@ -208,10 +212,54 @@ class _FeesScreenState extends State<FeesScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Collect Fee',
-                    style: Theme.of(ctx).textTheme.titleLarge),
+                // ── Header row with Scan Receipt button ──────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text('Collect Fee',
+                          style: Theme.of(ctx).textTheme.titleLarge),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: () async {
+                        final ocr = await showFeeOcrSheet(ctx);
+                        if (ocr == null) return;
+                        setS(() {
+                          if (ocr.amount != null) {
+                            amountCtrl.text =
+                                ocr.amount!.toStringAsFixed(0);
+                          }
+                          if (ocr.paymentDate != null) {
+                            selDate = ocr.paymentDate!;
+                          }
+                          if (ocr.transactionId != null) {
+                            txnCtrl.text = ocr.transactionId!;
+                          }
+                          if (ocr.receiptNumber != null) {
+                            rcptCtrl.text = ocr.receiptNumber!;
+                          }
+                          if (ocr.paymentMethod != null) {
+                            selMethod = ocr.paymentMethod!;
+                          }
+                          // Fuzzy-match student name hint
+                          if (ocr.studentName != null) {
+                            final hint = ocr.studentName!.toLowerCase();
+                            final match = students
+                                .where((s) =>
+                                    s.fullName.toLowerCase().contains(hint))
+                                .firstOrNull;
+                            if (match != null) selStudent = match.id;
+                          }
+                        });
+                      },
+                      icon: const Icon(Icons.document_scanner_rounded,
+                          size: 18),
+                      label: const Text('Scan'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
-                // Student picker
+
+                // ── Student picker ────────────────────────────────────────────
                 DropdownButtonFormField<String>(
                   key: ValueKey(selStudent),
                   initialValue: selStudent,
@@ -266,7 +314,7 @@ class _FeesScreenState extends State<FeesScreen>
                   items: const [
                     DropdownMenuItem(value: 'cash', child: Text('Cash')),
                     DropdownMenuItem(
-                        value: 'online', child: Text('Online')),
+                        value: 'online', child: Text('Online / UPI')),
                     DropdownMenuItem(
                         value: 'cheque', child: Text('Cheque')),
                     DropdownMenuItem(
@@ -276,7 +324,41 @@ class _FeesScreenState extends State<FeesScreen>
                     if (v != null) setS(() => selMethod = v);
                   },
                 ),
+                const SizedBox(height: 12),
+
+                // ── Payment date ──────────────────────────────────────────────
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_today_rounded),
+                  title: const Text('Payment Date'),
+                  subtitle: Text(
+                      '${selDate.day.toString().padLeft(2, '0')}/${selDate.month.toString().padLeft(2, '0')}/${selDate.year}'),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: selDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) setS(() => selDate = picked);
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // ── Transaction / Receipt fields ──────────────────────────────
+                TextField(
+                  controller: txnCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Transaction / UPI Ref (optional)'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: rcptCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Receipt Number (optional)'),
+                ),
                 const SizedBox(height: 20),
+
                 FilledButton(
                   onPressed: () async {
                     if (selStudent == null ||
@@ -294,10 +376,13 @@ class _FeesScreenState extends State<FeesScreen>
                       'amount_paid':
                           double.tryParse(amountCtrl.text.trim()) ?? 0,
                       'payment_method': selMethod,
-                      'payment_date': DateTime.now()
-                          .toIso8601String()
-                          .split('T')[0],
+                      'payment_date':
+                          selDate.toIso8601String().split('T')[0],
                       'status': 'paid',
+                      if (txnCtrl.text.trim().isNotEmpty)
+                        'transaction_id': txnCtrl.text.trim(),
+                      if (rcptCtrl.text.trim().isNotEmpty)
+                        'receipt_number': rcptCtrl.text.trim(),
                     };
                     Navigator.pop(ctx);
                     try {

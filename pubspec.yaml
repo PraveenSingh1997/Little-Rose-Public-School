@@ -36,6 +36,9 @@ dependencies:
   cached_network_image: ^3.3.1
   image_picker: ^1.1.2
 
+  # OCR — fee receipt scanning (Android & iOS only; degrades gracefully on web/desktop)
+  google_mlkit_text_recognition: ^0.13.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
