@@ -468,6 +468,76 @@ class FeeProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get error => _error;
 
+  // ── Analytics helpers (derived from _payments) ──────────────────────────────
+
+  List<FeePayment> get _paid =>
+      _payments.where((p) => p.status == 'paid').toList();
+
+  double get todayTotal {
+    final today = DateTime.now();
+    return _paid
+        .where((p) =>
+            p.paymentDate.year == today.year &&
+            p.paymentDate.month == today.month &&
+            p.paymentDate.day == today.day)
+        .fold(0.0, (sum, p) => sum + p.amountPaid);
+  }
+
+  int get todayCount {
+    final today = DateTime.now();
+    return _paid
+        .where((p) =>
+            p.paymentDate.year == today.year &&
+            p.paymentDate.month == today.month &&
+            p.paymentDate.day == today.day)
+        .length;
+  }
+
+  double get weekTotal {
+    final now = DateTime.now();
+    final startOfWeek =
+        DateTime(now.year, now.month, now.day - (now.weekday - 1));
+    return _paid
+        .where((p) => !p.paymentDate.isBefore(startOfWeek))
+        .fold(0.0, (sum, p) => sum + p.amountPaid);
+  }
+
+  int get weekCount {
+    final now = DateTime.now();
+    final startOfWeek =
+        DateTime(now.year, now.month, now.day - (now.weekday - 1));
+    return _paid.where((p) => !p.paymentDate.isBefore(startOfWeek)).length;
+  }
+
+  double get monthTotal {
+    final now = DateTime.now();
+    return _paid
+        .where((p) =>
+            p.paymentDate.year == now.year &&
+            p.paymentDate.month == now.month)
+        .fold(0.0, (sum, p) => sum + p.amountPaid);
+  }
+
+  int get monthCount {
+    final now = DateTime.now();
+    return _paid
+        .where((p) =>
+            p.paymentDate.year == now.year &&
+            p.paymentDate.month == now.month)
+        .length;
+  }
+
+  /// Student IDs that have at least one paid payment this month.
+  Set<String> get studentsPaidThisMonth {
+    final now = DateTime.now();
+    return _paid
+        .where((p) =>
+            p.paymentDate.year == now.year &&
+            p.paymentDate.month == now.month)
+        .map((p) => p.studentId)
+        .toSet();
+  }
+
   Future<void> loadStructures() async {
     _loading = true;
     _error = null;
