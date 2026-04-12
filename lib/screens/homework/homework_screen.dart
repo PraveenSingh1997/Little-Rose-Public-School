@@ -220,7 +220,10 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                         onButton: canEdit ? () => _showForm() : null,
                         buttonLabel: 'Assign Homework',
                       )
-                    : ListView.builder(
+                    : RefreshIndicator(
+                        onRefresh: () =>
+                            context.read<HomeworkProvider>().load(),
+                        child: ListView.builder(
                         padding:
                             const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: list.length,
@@ -282,6 +285,7 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                             ),
                           );
                         },
+                      ),
                       ),
           ),
         ],

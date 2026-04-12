@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/auth_models.dart';
@@ -17,6 +18,7 @@ class _LibraryScreenState extends State<LibraryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
   final _search = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -31,9 +33,17 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _tab.dispose();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      context.read<LibraryProvider>().loadBooks(search: value);
+    });
   }
 
   // ── Add / Edit Book ──────────────────────────────────────────────────────────
@@ -85,7 +95,9 @@ class _LibraryScreenState extends State<LibraryScreen>
               FilledButton(
                 onPressed: () async {
                   if (titleCtrl.text.trim().isEmpty ||
-                      authorCtrl.text.trim().isEmpty) return;
+                      authorCtrl.text.trim().isEmpty) {
+                    return;
+                  }
                   final copies = int.tryParse(copiesCtrl.text.trim()) ?? 1;
                   final data = {
                     'title': titleCtrl.text.trim(),
@@ -202,7 +214,9 @@ class _LibraryScreenState extends State<LibraryScreen>
                 FilledButton(
                   onPressed: () async {
                     if (selBookId == null ||
-                        borrowerNameCtrl.text.trim().isEmpty) return;
+                        borrowerNameCtrl.text.trim().isEmpty) {
+                      return;
+                    }
                     final data = {
                       'book_id': selBookId,
                       'borrower_id': auth.profile?.id,
@@ -292,8 +306,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                     hintText: 'Search books…',
                     prefixIcon: Icon(Icons.search),
                   ),
-                  onChanged: (v) =>
-                      context.read<LibraryProvider>().loadBooks(search: v),
+                  onChanged: _onSearchChanged,
                 ),
               ),
               Expanded(
@@ -313,74 +326,79 @@ class _LibraryScreenState extends State<LibraryScreen>
                                 onButton: canEdit ? () => _showAddBook() : null,
                                 buttonLabel: 'Add Book',
                               )
-                            : ListView.builder(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16),
-                                itemCount: provider.books.length,
-                                itemBuilder: (ctx, i) {
-                                  final b = provider.books[i];
-                                  return Card(
-                                    margin:
-                                        const EdgeInsets.only(bottom: 8),
-                                    child: ListTile(
-                                      leading: CircleAvatar(
-                                        backgroundColor: b.isAvailable
-                                            ? Colors.green
-                                                .withValues(alpha: 0.15)
-                                            : Colors.red
-                                                .withValues(alpha: 0.15),
-                                        child: Icon(
-                                          b.isAvailable
-                                              ? Icons.book
-                                              : Icons.book_outlined,
-                                          color: b.isAvailable
+                            : RefreshIndicator(
+                                onRefresh: () => context
+                                    .read<LibraryProvider>()
+                                    .loadBooks(),
+                                child: ListView.builder(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  itemCount: provider.books.length,
+                                  itemBuilder: (ctx, i) {
+                                    final b = provider.books[i];
+                                    return Card(
+                                      margin:
+                                          const EdgeInsets.only(bottom: 8),
+                                      child: ListTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor: b.isAvailable
                                               ? Colors.green
-                                              : Colors.red,
+                                                  .withValues(alpha: 0.15)
+                                              : Colors.red
+                                                  .withValues(alpha: 0.15),
+                                          child: Icon(
+                                            b.isAvailable
+                                                ? Icons.book
+                                                : Icons.book_outlined,
+                                            color: b.isAvailable
+                                                ? Colors.green
+                                                : Colors.red,
+                                          ),
                                         ),
-                                      ),
-                                      title: Text(b.title),
-                                      subtitle: Text(
-                                          '${b.author}${b.category != null ? '  •  ${b.category}' : ''}\nAvailable: ${b.availableCopies}/${b.totalCopies}'),
-                                      trailing: canEdit
-                                          ? PopupMenuButton<String>(
-                                              onSelected: (v) async {
-                                                if (v == 'edit') {
-                                                  _showAddBook(b);
-                                                } else if (v == 'issue') {
-                                                  _showIssueBook(b);
-                                                } else {
-                                                  final ok =
-                                                      await showConfirmDialog(
-                                                          context,
-                                                          title: 'Delete Book',
-                                                          message:
-                                                              'Delete "${b.title}"?');
-                                                  if (ok == true &&
-                                                      context.mounted) {
-                                                    await context
-                                                        .read<LibraryProvider>()
-                                                        .deleteBook(b.id);
+                                        title: Text(b.title),
+                                        subtitle: Text(
+                                            '${b.author}${b.category != null ? '  •  ${b.category}' : ''}\nAvailable: ${b.availableCopies}/${b.totalCopies}'),
+                                        trailing: canEdit
+                                            ? PopupMenuButton<String>(
+                                                onSelected: (v) async {
+                                                  if (v == 'edit') {
+                                                    _showAddBook(b);
+                                                  } else if (v == 'issue') {
+                                                    _showIssueBook(b);
+                                                  } else {
+                                                    final ok =
+                                                        await showConfirmDialog(
+                                                            context,
+                                                            title: 'Delete Book',
+                                                            message:
+                                                                'Delete "${b.title}"?');
+                                                    if (ok == true &&
+                                                        context.mounted) {
+                                                      await context
+                                                          .read<LibraryProvider>()
+                                                          .deleteBook(b.id);
+                                                    }
                                                   }
-                                                }
-                                              },
-                                              itemBuilder: (_) => [
-                                                const PopupMenuItem(
-                                                    value: 'edit',
-                                                    child: Text('Edit')),
-                                                if (b.isAvailable)
+                                                },
+                                                itemBuilder: (_) => [
                                                   const PopupMenuItem(
-                                                      value: 'issue',
-                                                      child:
-                                                          Text('Issue Book')),
-                                                const PopupMenuItem(
-                                                    value: 'delete',
-                                                    child: Text('Delete')),
-                                              ],
-                                            )
-                                          : null,
-                                    ),
-                                  );
-                                },
+                                                      value: 'edit',
+                                                      child: Text('Edit')),
+                                                  if (b.isAvailable)
+                                                    const PopupMenuItem(
+                                                        value: 'issue',
+                                                        child:
+                                                            Text('Issue Book')),
+                                                  const PopupMenuItem(
+                                                      value: 'delete',
+                                                      child: Text('Delete')),
+                                                ],
+                                              )
+                                            : null,
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
               ),
             ],
@@ -394,64 +412,68 @@ class _LibraryScreenState extends State<LibraryScreen>
                   onButton: canEdit ? () => _showIssueBook() : null,
                   buttonLabel: 'Issue Book',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.activeIssues.length,
-                  itemBuilder: (ctx, i) {
-                    final issue = provider.activeIssues[i];
-                    final book = provider.books
-                        .where((b) => b.id == issue.bookId)
-                        .firstOrNull;
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: issue.isOverdue
-                              ? Colors.red.withValues(alpha: 0.15)
-                              : Colors.green.withValues(alpha: 0.15),
-                          child: Icon(
-                            issue.isOverdue ? Icons.warning : Icons.book,
-                            color:
-                                issue.isOverdue ? Colors.red : Colors.green,
+              : RefreshIndicator(
+                  onRefresh: () =>
+                      context.read<LibraryProvider>().loadActiveIssues(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: provider.activeIssues.length,
+                    itemBuilder: (ctx, i) {
+                      final issue = provider.activeIssues[i];
+                      final book = provider.books
+                          .where((b) => b.id == issue.bookId)
+                          .firstOrNull;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: issue.isOverdue
+                                ? Colors.red.withValues(alpha: 0.15)
+                                : Colors.green.withValues(alpha: 0.15),
+                            child: Icon(
+                              issue.isOverdue ? Icons.warning : Icons.book,
+                              color:
+                                  issue.isOverdue ? Colors.red : Colors.green,
+                            ),
                           ),
+                          title: Text(book?.title ?? 'Unknown Book'),
+                          subtitle: Text(
+                              '${issue.borrowerName ?? 'Unknown'}  •  Due: ${issue.dueDate.day}/${issue.dueDate.month}/${issue.dueDate.year}'
+                              '${issue.isOverdue ? '\nOverdue! Fine: ₹${issue.calculatedFine.toStringAsFixed(0)}' : ''}'),
+                          trailing: canEdit
+                              ? TextButton(
+                                  onPressed: () async {
+                                    final messenger =
+                                        ScaffoldMessenger.of(context);
+                                    try {
+                                      await context
+                                          .read<LibraryProvider>()
+                                          .returnBook(
+                                              issue.id, issue.calculatedFine);
+                                      if (mounted) {
+                                        messenger.showSnackBar(const SnackBar(
+                                          content:
+                                              Text('Book returned successfully'),
+                                          behavior: SnackBarBehavior.floating,
+                                        ));
+                                      }
+                                    } catch (e) {
+                                      if (mounted) {
+                                        messenger.showSnackBar(SnackBar(
+                                          content:
+                                              Text('Error returning book: $e'),
+                                          behavior: SnackBarBehavior.floating,
+                                        ));
+                                      }
+                                    }
+                                  },
+                                  child: const Text('Return'),
+                                )
+                              : null,
                         ),
-                        title: Text(book?.title ?? 'Unknown Book'),
-                        subtitle: Text(
-                            '${issue.borrowerName ?? 'Unknown'}  •  Due: ${issue.dueDate.day}/${issue.dueDate.month}/${issue.dueDate.year}'
-                            '${issue.isOverdue ? '\nOverdue! Fine: ₹${issue.calculatedFine.toStringAsFixed(0)}' : ''}'),
-                        trailing: canEdit
-                            ? TextButton(
-                                onPressed: () async {
-                                  try {
-                                    await context
-                                        .read<LibraryProvider>()
-                                        .returnBook(
-                                            issue.id, issue.calculatedFine);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(const SnackBar(
-                                        content:
-                                            Text('Book returned successfully'),
-                                        behavior: SnackBarBehavior.floating,
-                                      ));
-                                    }
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(SnackBar(
-                                        content:
-                                            Text('Error returning book: $e'),
-                                        behavior: SnackBarBehavior.floating,
-                                      ));
-                                    }
-                                  }
-                                },
-                                child: const Text('Return'),
-                              )
-                            : null,
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
         ],
       ),

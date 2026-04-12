@@ -145,53 +145,56 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                   onButton: isAdmin ? () => _showForm() : null,
                   buttonLabel: 'Add Subject',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.subjects.length,
-                  itemBuilder: (ctx, i) {
-                    final s = provider.subjects[i];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          child: Text(s.code.substring(
-                              0,
-                              s.code.length > 2
-                                  ? 2
-                                  : s.code.length)),
-                        ),
-                        title: Text(s.name),
-                        subtitle: Text(
-                            'Code: ${s.code}  •  ${s.creditHours} credit hrs${s.description != null ? '\n${s.description}' : ''}'),
-                        trailing: isAdmin
-                            ? PopupMenuButton<String>(
-                                onSelected: (v) async {
-                                  if (v == 'edit') {
-                                    _showForm(s);
-                                  } else {
-                                    final ok = await showConfirmDialog(
-                                        context,
-                                        title: 'Delete Subject',
-                                        message: 'Delete ${s.name}?');
-                                    if (ok == true && context.mounted) {
-                                      await context
-                                          .read<ClassProvider>()
-                                          .deleteSubject(s.id);
+              : RefreshIndicator(
+                  onRefresh: () => context.read<ClassProvider>().loadAll(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: provider.subjects.length,
+                    itemBuilder: (ctx, i) {
+                      final s = provider.subjects[i];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            child: Text(s.code.substring(
+                                0,
+                                s.code.length > 2
+                                    ? 2
+                                    : s.code.length)),
+                          ),
+                          title: Text(s.name),
+                          subtitle: Text(
+                              'Code: ${s.code}  •  ${s.creditHours} credit hrs${s.description != null ? '\n${s.description}' : ''}'),
+                          trailing: isAdmin
+                              ? PopupMenuButton<String>(
+                                  onSelected: (v) async {
+                                    if (v == 'edit') {
+                                      _showForm(s);
+                                    } else {
+                                      final ok = await showConfirmDialog(
+                                          context,
+                                          title: 'Delete Subject',
+                                          message: 'Delete ${s.name}?');
+                                      if (ok == true && context.mounted) {
+                                        await context
+                                            .read<ClassProvider>()
+                                            .deleteSubject(s.id);
+                                      }
                                     }
-                                  }
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                      value: 'edit', child: Text('Edit')),
-                                  PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('Delete')),
-                                ],
-                              )
-                            : null,
-                      ),
-                    );
-                  },
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(
+                                        value: 'edit', child: Text('Edit')),
+                                    PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Delete')),
+                                  ],
+                                )
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
                 ),
     );
   }

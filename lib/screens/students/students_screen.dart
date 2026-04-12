@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/auth_models.dart';
@@ -16,6 +17,7 @@ class StudentsScreen extends StatefulWidget {
 class _StudentsScreenState extends State<StudentsScreen> {
   final _search = TextEditingController();
   String _query = '';
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -28,8 +30,16 @@ class _StudentsScreenState extends State<StudentsScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() => _query = value);
+    });
   }
 
   void _showForm([Student? existing]) {
@@ -207,7 +217,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                 hintText: 'Search by name or roll number…',
                 prefixIcon: Icon(Icons.search),
               ),
-              onChanged: (v) => setState(() => _query = v),
+              onChanged: _onSearchChanged,
             ),
           ),
           Expanded(
@@ -225,7 +235,10 @@ class _StudentsScreenState extends State<StudentsScreen> {
                         onButton: canEdit ? () => _showForm() : null,
                         buttonLabel: 'Add Student',
                       )
-                    : ListView.builder(
+                    : RefreshIndicator(
+                        onRefresh: () =>
+                            context.read<StudentProvider>().loadAll(),
+                        child: ListView.builder(
                         padding:
                             const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: list.length,
@@ -273,6 +286,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                             ),
                           );
                         },
+                      ),
                       ),
           ),
         ],

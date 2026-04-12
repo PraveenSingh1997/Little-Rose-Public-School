@@ -208,7 +208,10 @@ class _TeachersScreenState extends State<TeachersScreen> {
                         onButton: isAdmin ? () => _showForm() : null,
                         buttonLabel: 'Add Teacher',
                       )
-                    : ListView.builder(
+                    : RefreshIndicator(
+                        onRefresh: () =>
+                            context.read<TeacherProvider>().loadAll(),
+                        child: ListView.builder(
                         padding:
                             const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: list.length,
@@ -256,6 +259,7 @@ class _TeachersScreenState extends State<TeachersScreen> {
                             ),
                           );
                         },
+                      ),
                       ),
           ),
         ],

@@ -169,52 +169,55 @@ class _TransportScreenState extends State<TransportScreen> {
                   onButton: isAdmin ? () => _showForm() : null,
                   buttonLabel: 'Add Route',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.routes.length,
-                  itemBuilder: (ctx, i) {
-                    final r = provider.routes[i];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          child: Text(r.routeNumber),
-                        ),
-                        title: Text(r.routeName),
-                        subtitle: Text(
-                            '${r.driverName ?? 'No driver'}${r.vehicleNumber != null ? '  •  ${r.vehicleNumber}' : ''}'
-                            '\nCapacity: ${r.capacity}  •  ₹${r.monthlyFee.toStringAsFixed(0)}/mo'),
-                        isThreeLine: true,
-                        trailing: isAdmin
-                            ? PopupMenuButton<String>(
-                                onSelected: (v) async {
-                                  if (v == 'edit') {
-                                    _showForm(r);
-                                  } else {
-                                    final ok = await showConfirmDialog(
-                                        context,
-                                        title: 'Delete Route',
-                                        message:
-                                            'Delete ${r.routeName}?');
-                                    if (ok == true && context.mounted) {
-                                      await context
-                                          .read<TransportProvider>()
-                                          .delete(r.id);
+              : RefreshIndicator(
+                  onRefresh: () => context.read<TransportProvider>().load(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: provider.routes.length,
+                    itemBuilder: (ctx, i) {
+                      final r = provider.routes[i];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            child: Text(r.routeNumber),
+                          ),
+                          title: Text(r.routeName),
+                          subtitle: Text(
+                              '${r.driverName ?? 'No driver'}${r.vehicleNumber != null ? '  •  ${r.vehicleNumber}' : ''}'
+                              '\nCapacity: ${r.capacity}  •  ₹${r.monthlyFee.toStringAsFixed(0)}/mo'),
+                          isThreeLine: true,
+                          trailing: isAdmin
+                              ? PopupMenuButton<String>(
+                                  onSelected: (v) async {
+                                    if (v == 'edit') {
+                                      _showForm(r);
+                                    } else {
+                                      final ok = await showConfirmDialog(
+                                          context,
+                                          title: 'Delete Route',
+                                          message:
+                                              'Delete ${r.routeName}?');
+                                      if (ok == true && context.mounted) {
+                                        await context
+                                            .read<TransportProvider>()
+                                            .delete(r.id);
+                                      }
                                     }
-                                  }
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                      value: 'edit', child: Text('Edit')),
-                                  PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('Delete')),
-                                ],
-                              )
-                            : null,
-                      ),
-                    );
-                  },
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(
+                                        value: 'edit', child: Text('Edit')),
+                                    PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Delete')),
+                                  ],
+                                )
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
                 ),
     );
   }

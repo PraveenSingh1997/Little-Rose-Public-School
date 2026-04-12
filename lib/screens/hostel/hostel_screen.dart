@@ -176,57 +176,60 @@ class _HostelScreenState extends State<HostelScreen> {
                   onButton: isAdmin ? () => _showForm() : null,
                   buttonLabel: 'Add Room',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.rooms.length,
-                  itemBuilder: (ctx, i) {
-                    final r = provider.rooms[i];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: r.isFull
-                              ? Colors.red.withValues(alpha: 0.15)
-                              : Colors.green.withValues(alpha: 0.15),
-                          child: Icon(
-                            r.isFull ? Icons.hotel : Icons.hotel_outlined,
-                            color: r.isFull ? Colors.red : Colors.green,
+              : RefreshIndicator(
+                  onRefresh: () => context.read<HostelProvider>().load(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: provider.rooms.length,
+                    itemBuilder: (ctx, i) {
+                      final r = provider.rooms[i];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: r.isFull
+                                ? Colors.red.withValues(alpha: 0.15)
+                                : Colors.green.withValues(alpha: 0.15),
+                            child: Icon(
+                              r.isFull ? Icons.hotel : Icons.hotel_outlined,
+                              color: r.isFull ? Colors.red : Colors.green,
+                            ),
                           ),
-                        ),
-                        title: Text('Room ${r.roomNumber}'),
-                        subtitle: Text(
-                            'Floor ${r.floor}  •  ${r.roomType}  •  ${r.occupied}/${r.capacity} occupied\n₹${r.monthlyFee.toStringAsFixed(0)}/month'),
-                        isThreeLine: true,
-                        trailing: isAdmin
-                            ? PopupMenuButton<String>(
-                                onSelected: (v) async {
-                                  if (v == 'edit') {
-                                    _showForm(r);
-                                  } else {
-                                    final ok = await showConfirmDialog(
-                                        context,
-                                        title: 'Delete Room',
-                                        message:
-                                            'Delete Room ${r.roomNumber}? This cannot be undone.');
-                                    if (ok == true && context.mounted) {
-                                      await context
-                                          .read<HostelProvider>()
-                                          .delete(r.id);
+                          title: Text('Room ${r.roomNumber}'),
+                          subtitle: Text(
+                              'Floor ${r.floor}  •  ${r.roomType}  •  ${r.occupied}/${r.capacity} occupied\n₹${r.monthlyFee.toStringAsFixed(0)}/month'),
+                          isThreeLine: true,
+                          trailing: isAdmin
+                              ? PopupMenuButton<String>(
+                                  onSelected: (v) async {
+                                    if (v == 'edit') {
+                                      _showForm(r);
+                                    } else {
+                                      final ok = await showConfirmDialog(
+                                          context,
+                                          title: 'Delete Room',
+                                          message:
+                                              'Delete Room ${r.roomNumber}? This cannot be undone.');
+                                      if (ok == true && context.mounted) {
+                                        await context
+                                            .read<HostelProvider>()
+                                            .delete(r.id);
+                                      }
                                     }
-                                  }
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                      value: 'edit', child: Text('Edit')),
-                                  PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('Delete')),
-                                ],
-                              )
-                            : null,
-                      ),
-                    );
-                  },
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(
+                                        value: 'edit', child: Text('Edit')),
+                                    PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Delete')),
+                                  ],
+                                )
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
                 ),
     );
   }

@@ -154,50 +154,53 @@ class _ClassesScreenState extends State<ClassesScreen> {
                   onButton: isAdmin ? () => _showForm() : null,
                   buttonLabel: 'Add Class',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.classes.length,
-                  itemBuilder: (ctx, i) {
-                    final c = provider.classes[i];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          child: Text('${c.gradeLevel}'),
-                        ),
-                        title: Text(c.displayName),
-                        subtitle: Text(
-                            'Capacity: ${c.capacity}${c.roomNumber != null ? '  •  Room: ${c.roomNumber}' : ''}  •  ${c.academicYear}'),
-                        trailing: isAdmin
-                            ? PopupMenuButton<String>(
-                                onSelected: (v) async {
-                                  if (v == 'edit') {
-                                    _showForm(c);
-                                  } else {
-                                    final ok = await showConfirmDialog(
-                                        context,
-                                        title: 'Delete Class',
-                                        message:
-                                            'Delete ${c.displayName}?');
-                                    if (ok == true && context.mounted) {
-                                      await context
-                                          .read<ClassProvider>()
-                                          .deleteClass(c.id);
+              : RefreshIndicator(
+                  onRefresh: () => context.read<ClassProvider>().loadAll(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: provider.classes.length,
+                    itemBuilder: (ctx, i) {
+                      final c = provider.classes[i];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            child: Text('${c.gradeLevel}'),
+                          ),
+                          title: Text(c.displayName),
+                          subtitle: Text(
+                              'Capacity: ${c.capacity}${c.roomNumber != null ? '  •  Room: ${c.roomNumber}' : ''}  •  ${c.academicYear}'),
+                          trailing: isAdmin
+                              ? PopupMenuButton<String>(
+                                  onSelected: (v) async {
+                                    if (v == 'edit') {
+                                      _showForm(c);
+                                    } else {
+                                      final ok = await showConfirmDialog(
+                                          context,
+                                          title: 'Delete Class',
+                                          message:
+                                              'Delete ${c.displayName}?');
+                                      if (ok == true && context.mounted) {
+                                        await context
+                                            .read<ClassProvider>()
+                                            .deleteClass(c.id);
+                                      }
                                     }
-                                  }
-                                },
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                      value: 'edit', child: Text('Edit')),
-                                  PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('Delete')),
-                                ],
-                              )
-                            : null,
-                      ),
-                    );
-                  },
+                                  },
+                                  itemBuilder: (_) => const [
+                                    PopupMenuItem(
+                                        value: 'edit', child: Text('Edit')),
+                                    PopupMenuItem(
+                                        value: 'delete',
+                                        child: Text('Delete')),
+                                  ],
+                                )
+                              : null,
+                        ),
+                      );
+                    },
+                  ),
                 ),
     );
   }

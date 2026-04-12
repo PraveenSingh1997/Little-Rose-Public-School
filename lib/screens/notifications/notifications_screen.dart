@@ -58,10 +58,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               title: 'No notifications',
               subtitle: 'You\'re all caught up!',
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: provider.notifications.length,
-              itemBuilder: (ctx, i) {
+          : RefreshIndicator(
+              onRefresh: () {
+                final userId = auth.profile?.id;
+                if (userId != null) {
+                  return context.read<NotificationProvider>().load(userId);
+                }
+                return Future.value();
+              },
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: provider.notifications.length,
+                itemBuilder: (ctx, i) {
                 final n = provider.notifications[i];
                 final color = Color(n.colorValue);
                 return Card(
@@ -97,7 +105,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             .markRead(n.id),
                   ),
                 );
-              },
+                },
+              ),
             ),
     );
   }

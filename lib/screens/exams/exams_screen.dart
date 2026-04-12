@@ -237,58 +237,61 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         onButton: canEdit ? () => _showForm() : null,
                         buttonLabel: 'Schedule Exam',
                       )
-                    : ListView.builder(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: list.length,
-                        itemBuilder: (ctx, i) {
-                          final e = list[i];
-                          final subject =
-                              classProvider.getSubjectById(e.subjectId);
-                          final cls =
-                              classProvider.getClassById(e.classId);
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                child: Text(e.examType.label
-                                    .substring(0, 1)),
-                              ),
-                              title: Text(e.name),
-                              subtitle: Text(
-                                  '${subject?.name ?? 'Unknown'}  •  ${cls?.displayName ?? 'Unknown'}\n${e.examDate.day}/${e.examDate.month}/${e.examDate.year}  •  ${e.totalMarks} marks'),
-                              trailing: canEdit
-                                  ? PopupMenuButton<String>(
-                                      onSelected: (v) async {
-                                        if (v == 'edit') {
-                                          _showForm(e);
-                                        } else {
-                                          final ok = await showConfirmDialog(
-                                              context,
-                                              title: 'Delete Exam',
-                                              message:
-                                                  'Delete ${e.name}?');
-                                          if (ok == true &&
-                                              context.mounted) {
-                                            await context
-                                                .read<ExamProvider>()
-                                                .deleteExam(e.id);
+                    : RefreshIndicator(
+                        onRefresh: () => context.read<ExamProvider>().loadExams(),
+                        child: ListView.builder(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 16),
+                          itemCount: list.length,
+                          itemBuilder: (ctx, i) {
+                            final e = list[i];
+                            final subject =
+                                classProvider.getSubjectById(e.subjectId);
+                            final cls =
+                                classProvider.getClassById(e.classId);
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  child: Text(e.examType.label
+                                      .substring(0, 1)),
+                                ),
+                                title: Text(e.name),
+                                subtitle: Text(
+                                    '${subject?.name ?? 'Unknown'}  •  ${cls?.displayName ?? 'Unknown'}\n${e.examDate.day}/${e.examDate.month}/${e.examDate.year}  •  ${e.totalMarks} marks'),
+                                trailing: canEdit
+                                    ? PopupMenuButton<String>(
+                                        onSelected: (v) async {
+                                          if (v == 'edit') {
+                                            _showForm(e);
+                                          } else {
+                                            final ok = await showConfirmDialog(
+                                                context,
+                                                title: 'Delete Exam',
+                                                message:
+                                                    'Delete ${e.name}?');
+                                            if (ok == true &&
+                                                context.mounted) {
+                                              await context
+                                                  .read<ExamProvider>()
+                                                  .deleteExam(e.id);
+                                            }
                                           }
-                                        }
-                                      },
-                                      itemBuilder: (_) => const [
-                                        PopupMenuItem(
-                                            value: 'edit',
-                                            child: Text('Edit')),
-                                        PopupMenuItem(
-                                            value: 'delete',
-                                            child: Text('Delete')),
-                                      ],
-                                    )
-                                  : null,
-                            ),
-                          );
-                        },
+                                        },
+                                        itemBuilder: (_) => const [
+                                          PopupMenuItem(
+                                              value: 'edit',
+                                              child: Text('Edit')),
+                                          PopupMenuItem(
+                                              value: 'delete',
+                                              child: Text('Delete')),
+                                        ],
+                                      )
+                                    : null,
+                              ),
+                            );
+                          },
+                        ),
                       ),
           ),
         ],

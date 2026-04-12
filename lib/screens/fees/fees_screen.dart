@@ -379,75 +379,79 @@ class _FeesScreenState extends State<FeesScreen>
                               isAdmin ? () => _showStructureForm() : null,
                           buttonLabel: 'Add Structure',
                         )
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: provider.structures.length,
-                          itemBuilder: (ctx, i) {
-                            final s = provider.structures[i];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                leading: const CircleAvatar(
-                                    child: Icon(Icons.payments)),
-                                title: Text(s.name),
-                                subtitle: Text(
-                                    '${s.feeType.label}  •  ${s.frequency}  •  ${s.academicYear}'),
-                                trailing: isAdmin
-                                    ? Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            '₹${s.amount.toStringAsFixed(0)}',
-                                            style: Theme.of(ctx)
-                                                .textTheme
-                                                .titleMedium
-                                                ?.copyWith(
-                                                    fontWeight:
-                                                        FontWeight.bold),
-                                          ),
-                                          PopupMenuButton<String>(
-                                            onSelected: (v) async {
-                                              if (v == 'edit') {
-                                                _showStructureForm(s);
-                                              } else {
-                                                final ok =
-                                                    await showConfirmDialog(
-                                                        context,
-                                                        title:
-                                                            'Delete Structure',
-                                                        message:
-                                                            'Delete "${s.name}"?');
-                                                if (ok == true &&
-                                                    context.mounted) {
-                                                  await context
-                                                      .read<FeeProvider>()
-                                                      .deleteStructure(
-                                                          s.id);
+                      : RefreshIndicator(
+                          onRefresh: () =>
+                              context.read<FeeProvider>().loadStructures(),
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: provider.structures.length,
+                            itemBuilder: (ctx, i) {
+                              final s = provider.structures[i];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  leading: const CircleAvatar(
+                                      child: Icon(Icons.payments)),
+                                  title: Text(s.name),
+                                  subtitle: Text(
+                                      '${s.feeType.label}  •  ${s.frequency}  •  ${s.academicYear}'),
+                                  trailing: isAdmin
+                                      ? Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              '₹${s.amount.toStringAsFixed(0)}',
+                                              style: Theme.of(ctx)
+                                                  .textTheme
+                                                  .titleMedium
+                                                  ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold),
+                                            ),
+                                            PopupMenuButton<String>(
+                                              onSelected: (v) async {
+                                                if (v == 'edit') {
+                                                  _showStructureForm(s);
+                                                } else {
+                                                  final ok =
+                                                      await showConfirmDialog(
+                                                          context,
+                                                          title:
+                                                              'Delete Structure',
+                                                          message:
+                                                              'Delete "${s.name}"?');
+                                                  if (ok == true &&
+                                                      context.mounted) {
+                                                    await context
+                                                        .read<FeeProvider>()
+                                                        .deleteStructure(
+                                                            s.id);
+                                                  }
                                                 }
-                                              }
-                                            },
-                                            itemBuilder: (_) => const [
-                                              PopupMenuItem(
-                                                  value: 'edit',
-                                                  child: Text('Edit')),
-                                              PopupMenuItem(
-                                                  value: 'delete',
-                                                  child: Text('Delete')),
-                                            ],
-                                          ),
-                                        ],
-                                      )
-                                    : Text(
-                                        '₹${s.amount.toStringAsFixed(0)}',
-                                        style: Theme.of(ctx)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                                fontWeight: FontWeight.bold),
-                                      ),
-                              ),
-                            );
-                          },
+                                              },
+                                              itemBuilder: (_) => const [
+                                                PopupMenuItem(
+                                                    value: 'edit',
+                                                    child: Text('Edit')),
+                                                PopupMenuItem(
+                                                    value: 'delete',
+                                                    child: Text('Delete')),
+                                              ],
+                                            ),
+                                          ],
+                                        )
+                                      : Text(
+                                          '₹${s.amount.toStringAsFixed(0)}',
+                                          style: Theme.of(ctx)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.bold),
+                                        ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
 
           // ── Payments tab ────────────────────────────────────────────────────
@@ -458,43 +462,47 @@ class _FeesScreenState extends State<FeesScreen>
                       icon: Icons.receipt_outlined,
                       title: 'No payments recorded',
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: provider.payments.length,
-                      itemBuilder: (ctx, i) {
-                        final p = provider.payments[i];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: p.status == 'paid'
-                                  ? Colors.green.withValues(alpha: 0.15)
-                                  : Colors.red.withValues(alpha: 0.15),
-                              child: Icon(
-                                p.status == 'paid'
-                                    ? Icons.check
-                                    : Icons.pending,
-                                color: p.status == 'paid'
-                                    ? Colors.green
-                                    : Colors.red,
+                  : RefreshIndicator(
+                      onRefresh: () =>
+                          context.read<FeeProvider>().loadPayments(),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: provider.payments.length,
+                        itemBuilder: (ctx, i) {
+                          final p = provider.payments[i];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: p.status == 'paid'
+                                    ? Colors.green.withValues(alpha: 0.15)
+                                    : Colors.red.withValues(alpha: 0.15),
+                                child: Icon(
+                                  p.status == 'paid'
+                                      ? Icons.check
+                                      : Icons.pending,
+                                  color: p.status == 'paid'
+                                      ? Colors.green
+                                      : Colors.red,
+                                ),
+                              ),
+                              title: Text(
+                                  'Receipt #${p.receiptNumber ?? p.id.substring(0, 8)}'),
+                              subtitle: Text(
+                                  '${p.paymentDate.day}/${p.paymentDate.month}/${p.paymentDate.year}  •  ${p.paymentMethod.label}'),
+                              trailing: Text(
+                                '₹${p.amountPaid.toStringAsFixed(0)}',
+                                style: Theme.of(ctx)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green),
                               ),
                             ),
-                            title: Text(
-                                'Receipt #${p.receiptNumber ?? p.id.substring(0, 8)}'),
-                            subtitle: Text(
-                                '${p.paymentDate.day}/${p.paymentDate.month}/${p.paymentDate.year}  •  ${p.paymentMethod.label}'),
-                            trailing: Text(
-                              '₹${p.amountPaid.toStringAsFixed(0)}',
-                              style: Theme.of(ctx)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green),
-                            ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
         ],
       ),

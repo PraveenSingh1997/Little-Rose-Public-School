@@ -169,12 +169,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   onButton: canPost ? _showForm : null,
                   buttonLabel: 'Post Announcement',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.announcements.length,
-                  itemBuilder: (ctx, i) {
-                    final a = provider.announcements[i];
-                    final color = Color(a.type.colorValue);
+              : RefreshIndicator(
+                  onRefresh: () => context.read<AnnouncementProvider>().load(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: provider.announcements.length,
+                    itemBuilder: (ctx, i) {
+                      final a = provider.announcements[i];
+                      final color = Color(a.type.colorValue);
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       child: Padding(
@@ -247,7 +249,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         ),
                       ),
                     );
-                  },
+                    },
+                  ),
                 ),
     );
   }
