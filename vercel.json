@@ -19,7 +19,15 @@
       ]
     },
     {
-      "source": "/(.*\\.js|.*\\.wasm)",
+      "source": "/(main\\.dart\\.js|flutter\\.js|flutter_bootstrap\\.js)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }
+      ]
+    },
+    {
+      "source": "/(.*\\.wasm|.*canvaskit.*\\.js)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
         { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" },
