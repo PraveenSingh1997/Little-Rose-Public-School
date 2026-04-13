@@ -7,6 +7,8 @@ import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
 import '../shell_screen.dart';
 
+// ─── Students List Screen ─────────────────────────────────────────────────────
+
 class StudentsScreen extends StatefulWidget {
   const StudentsScreen({super.key});
 
@@ -42,140 +44,17 @@ class _StudentsScreenState extends State<StudentsScreen> {
     });
   }
 
-  void _showForm([Student? existing]) {
-    final classes = context.read<ClassProvider>().classes;
-    final firstCtrl = TextEditingController(text: existing?.firstName);
-    final lastCtrl = TextEditingController(text: existing?.lastName);
-    final rollCtrl = TextEditingController(text: existing?.rollNumber);
-    final parentNameCtrl = TextEditingController(text: existing?.parentName ?? '');
-    final parentPhoneCtrl = TextEditingController(text: existing?.parentPhone ?? '');
-    String? selectedClass = existing?.classId;
-    DateTime dob = existing?.dateOfBirth ?? DateTime(2010);
+  void _openForm([Student? existing]) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => _StudentFormPage(existing: existing)),
+    );
+  }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-            24, 24, 24, MediaQuery.of(ctx).viewInsets.bottom + 24),
-        child: StatefulBuilder(builder: (ctx, setS) {
-          return SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(existing == null ? 'Add Student' : 'Edit Student',
-                    style: Theme.of(ctx).textTheme.titleLarge),
-                const SizedBox(height: 16),
-                TextField(
-                    controller: firstCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'First Name *')),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: lastCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Last Name *')),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: rollCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Roll Number *')),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  key: ValueKey(selectedClass),
-                  initialValue: selectedClass,
-                  decoration: const InputDecoration(labelText: 'Class'),
-                  items: classes
-                      .map((c) => DropdownMenuItem(
-                          value: c.id, child: Text(c.displayName)))
-                      .toList(),
-                  onChanged: (v) => setS(() => selectedClass = v),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Date of Birth'),
-                  subtitle: Text(
-                      '${dob.day}/${dob.month}/${dob.year}'),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: ctx,
-                      initialDate: dob,
-                      firstDate: DateTime(1990),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) setS(() => dob = picked);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: parentNameCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Parent Name')),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: parentPhoneCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Parent Phone'),
-                    keyboardType: TextInputType.phone),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: () async {
-                    if (firstCtrl.text.trim().isEmpty ||
-                        lastCtrl.text.trim().isEmpty ||
-                        rollCtrl.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-                        content: Text('First name, last name and roll number are required'),
-                        behavior: SnackBarBehavior.floating,
-                      ));
-                      return;
-                    }
-                    final data = {
-                      'first_name': firstCtrl.text.trim(),
-                      'last_name': lastCtrl.text.trim(),
-                      'roll_number': rollCtrl.text.trim(),
-                      'date_of_birth':
-                          dob.toIso8601String().split('T')[0],
-                      'admission_date': existing?.admissionDate
-                              .toIso8601String()
-                              .split('T')[0] ??
-                          DateTime.now().toIso8601String().split('T')[0],
-                      if (selectedClass != null) 'class_id': selectedClass,
-                      if (parentNameCtrl.text.isNotEmpty)
-                        'parent_name': parentNameCtrl.text.trim(),
-                      if (parentPhoneCtrl.text.isNotEmpty)
-                        'parent_phone': parentPhoneCtrl.text.trim(),
-                    };
-                    Navigator.pop(ctx);
-                    try {
-                      if (existing == null) {
-                        await context.read<StudentProvider>().create(data);
-                      } else {
-                        await context
-                            .read<StudentProvider>()
-                            .update(existing.id, data);
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('Error saving student: $e'),
-                          behavior: SnackBarBehavior.floating,
-                        ));
-                      }
-                    }
-                  },
-                  child: Text(
-                      existing == null ? 'Add Student' : 'Save Changes'),
-                ),
-              ],
-            ),
-          );
-        }),
-      ),
+  void _openProfile(Student s) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => _StudentDetailPage(student: s)),
     );
   }
 
@@ -185,9 +64,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
     final role = context.watch<AuthProvider>().role;
     final isWide = MediaQuery.of(context).size.width >= 720;
     final canEdit = role == UserRole.admin || role == UserRole.teacher;
-
-    final list =
-        _query.isEmpty ? provider.students : provider.search(_query);
+    final list = _query.isEmpty ? provider.students : provider.search(_query);
 
     return Scaffold(
       appBar: AppBar(
@@ -202,7 +79,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
       ),
       floatingActionButton: canEdit
           ? FloatingActionButton.extended(
-              onPressed: () => _showForm(),
+              onPressed: () => _openForm(),
               icon: const Icon(Icons.person_add),
               label: const Text('Add Student'),
             )
@@ -226,70 +103,807 @@ class _StudentsScreenState extends State<StudentsScreen> {
                 : provider.error != null
                     ? AppErrorWidget(
                         message: 'Failed to load students.\n${provider.error}',
-                        onRetry: () => context.read<StudentProvider>().loadAll(),
+                        onRetry: () =>
+                            context.read<StudentProvider>().loadAll(),
                       )
                     : list.isEmpty
-                    ? EmptyState(
-                        icon: Icons.people_outline,
-                        title: 'No students found',
-                        onButton: canEdit ? () => _showForm() : null,
-                        buttonLabel: 'Add Student',
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () =>
-                            context.read<StudentProvider>().loadAll(),
-                        child: ListView.builder(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: list.length,
-                        itemBuilder: (ctx, i) {
-                          final s = list[i];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              leading: AvatarWidget(
-                                initials: s.initials,
-                                radius: 22,
-                              ),
-                              title: Text(s.fullName),
-                              subtitle: Text(
-                                  'Roll: ${s.rollNumber}  •  Age: ${s.age}${s.gender != null ? '  •  ${s.gender}' : ''}'),
-                              trailing: canEdit
-                                  ? PopupMenuButton<String>(
-                                      onSelected: (v) async {
-                                        if (v == 'edit') {
-                                          _showForm(s);
-                                        } else {
-                                          final ok = await showConfirmDialog(
-                                              context,
-                                              title: 'Delete Student',
-                                              message:
-                                                  'Delete ${s.fullName}?');
-                                          if (ok == true &&
-                                              context.mounted) {
-                                            await context
-                                                .read<StudentProvider>()
-                                                .delete(s.id);
-                                          }
-                                        }
-                                      },
-                                      itemBuilder: (_) => const [
-                                        PopupMenuItem(
-                                            value: 'edit',
-                                            child: Text('Edit')),
-                                        PopupMenuItem(
-                                            value: 'delete',
-                                            child: Text('Delete')),
-                                      ],
-                                    )
-                                  : null,
+                        ? EmptyState(
+                            icon: Icons.people_outline,
+                            title: 'No students found',
+                            onButton: canEdit ? () => _openForm() : null,
+                            buttonLabel: 'Add Student',
+                          )
+                        : RefreshIndicator(
+                            onRefresh: () =>
+                                context.read<StudentProvider>().loadAll(),
+                            child: ListView.builder(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: list.length,
+                              itemBuilder: (ctx, i) {
+                                final s = list[i];
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  child: ListTile(
+                                    onTap: () => _openProfile(s),
+                                    leading: AvatarWidget(
+                                      initials: s.initials,
+                                      radius: 22,
+                                    ),
+                                    title: Text(s.fullName),
+                                    subtitle: Text(
+                                        'Roll: ${s.rollNumber}  •  Age: ${s.age}'
+                                        '${s.gender != null ? '  •  ${s.gender}' : ''}'),
+                                    trailing: canEdit
+                                        ? PopupMenuButton<String>(
+                                            onSelected: (v) async {
+                                              if (v == 'edit') {
+                                                _openForm(s);
+                                              } else {
+                                                final ok =
+                                                    await showConfirmDialog(
+                                                  context,
+                                                  title: 'Delete Student',
+                                                  message:
+                                                      'Delete ${s.fullName}?',
+                                                );
+                                                if (ok == true &&
+                                                    context.mounted) {
+                                                  await context
+                                                      .read<StudentProvider>()
+                                                      .delete(s.id);
+                                                }
+                                              }
+                                            },
+                                            itemBuilder: (_) => const [
+                                              PopupMenuItem(
+                                                  value: 'edit',
+                                                  child: Text('Edit')),
+                                              PopupMenuItem(
+                                                  value: 'delete',
+                                                  child: Text('Delete')),
+                                            ],
+                                          )
+                                        : const Icon(Icons.chevron_right),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                      ),
+                          ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Student Detail Page ──────────────────────────────────────────────────────
+
+class _StudentDetailPage extends StatelessWidget {
+  final Student student;
+  const _StudentDetailPage({required this.student});
+
+  static String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final role = context.watch<AuthProvider>().role;
+    final canEdit = role == UserRole.admin || role == UserRole.teacher;
+    final classes = context.watch<ClassProvider>().classes;
+    final className = classes
+        .where((c) => c.id == student.classId)
+        .map((c) => c.displayName)
+        .firstOrNull;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(student.fullName),
+        actions: [
+          if (canEdit)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => _StudentFormPage(existing: student)),
+              ),
+            ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ─────────────────────────────────────────────────────
+            Center(
+              child: Column(
+                children: [
+                  AvatarWidget(initials: student.initials, radius: 40),
+                  const SizedBox(height: 12),
+                  Text(student.fullName, style: tt.headlineSmall),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      if (className != null) Chip(label: Text(className)),
+                      Chip(
+                        label: Text(student.status.toUpperCase()),
+                        backgroundColor: student.isActive
+                            ? cs.primaryContainer
+                            : cs.errorContainer,
+                        labelStyle: TextStyle(
+                          color: student.isActive
+                              ? cs.onPrimaryContainer
+                              : cs.onErrorContainer,
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (student.category != null)
+                        Chip(
+                          label: Text(student.category!.toUpperCase()),
+                          backgroundColor: cs.secondaryContainer,
+                          labelStyle: TextStyle(
+                              color: cs.onSecondaryContainer, fontSize: 12),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ── Admission Info ──────────────────────────────────────────────
+            _sectionCard(
+              title: 'Admission Info',
+              icon: Icons.assignment_outlined,
+              rows: [
+                _row('Form No.', student.formNumber),
+                _row('Scholar No.', student.scholarNumber),
+                _row('Admission No.', student.admissionNumber),
+                _row('Roll No.', student.rollNumber),
+                _row('Admission Date', _fmt(student.admissionDate)),
+                _row('Class', className),
+              ],
+            ),
+
+            // ── Personal Details ────────────────────────────────────────────
+            _sectionCard(
+              title: 'Personal Details',
+              icon: Icons.person_outline,
+              rows: [
+                _row('Full Name', student.fullName),
+                _row('Date of Birth', _fmt(student.dateOfBirth)),
+                _row('Age', '${student.age} years'),
+                _row('Gender', student.gender),
+                _row('Blood Group', student.bloodGroup),
+              ],
+            ),
+
+            // ── Address ─────────────────────────────────────────────────────
+            _sectionCard(
+              title: 'Address',
+              icon: Icons.home_outlined,
+              rows: [
+                _row('Address', student.address),
+                _row('City', student.city),
+                _row('State', student.state),
+              ],
+            ),
+
+            // ── Family Details ──────────────────────────────────────────────
+            _sectionCard(
+              title: 'Family Details',
+              icon: Icons.family_restroom_outlined,
+              rows: [
+                _row("Father's Name",
+                    student.fatherName ?? student.parentName),
+                _row("Mother's Name", student.motherName),
+                _row("Guardian's Name", student.guardianName),
+                _row("Father's Occupation", student.fatherOccupation),
+                _row("Father's Qualification", student.fatherQualification),
+                _row("Mother's Qualification", student.motherQualification),
+              ],
+            ),
+
+            // ── Contact ─────────────────────────────────────────────────────
+            _sectionCard(
+              title: 'Contact',
+              icon: Icons.phone_outlined,
+              rows: [
+                _row('Mobile', student.parentPhone),
+                _row('Office Phone', student.officePhone),
+                _row('Email', student.parentEmail),
+              ],
+            ),
+
+            // ── Identity Documents ──────────────────────────────────────────
+            _sectionCard(
+              title: 'Identity Documents',
+              icon: Icons.badge_outlined,
+              rows: [
+                _row('UDISE No.', student.udiseNumber),
+                _row('Aadhar No.', student.aadharNumber),
+              ],
+            ),
+
+            // ── Bank Details ────────────────────────────────────────────────
+            _sectionCard(
+              title: 'Bank Details',
+              icon: Icons.account_balance_outlined,
+              rows: [
+                _row('Account No.', student.bankAccountNumber),
+                _row('IFSC Code', student.ifscCode),
+              ],
+            ),
+
+            // ── Previous Education ──────────────────────────────────────────
+            _sectionCard(
+              title: 'Previous Education',
+              icon: Icons.school_outlined,
+              rows: [
+                _row('Last Passed Class', student.lastPassedClass),
+                _row('Year', student.lastPassedYear),
+                _row(
+                    'Percentage',
+                    student.lastPassedPercentage != null
+                        ? '${student.lastPassedPercentage}%'
+                        : null),
+                _row('Total Marks', student.lastPassedTotal),
+              ],
+            ),
+
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _sectionCard({
+    required String title,
+    required IconData icon,
+    required List<_InfoRow?> rows,
+  }) {
+    final visible = rows.whereType<_InfoRow>().toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(icon, size: 18),
+                const SizedBox(width: 8),
+                Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15)),
+              ]),
+              const Divider(height: 20),
+              ...visible.map((r) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 160,
+                          child: Text(r.label,
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 13)),
+                        ),
+                        Expanded(
+                          child: Text(r.value,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w500)),
+                        ),
+                      ],
+                    ),
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static _InfoRow? _row(String label, String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return _InfoRow(label, value.trim());
+  }
+}
+
+class _InfoRow {
+  final String label;
+  final String value;
+  const _InfoRow(this.label, this.value);
+}
+
+// ─── Student Form Page ────────────────────────────────────────────────────────
+
+class _StudentFormPage extends StatefulWidget {
+  final Student? existing;
+  const _StudentFormPage({this.existing});
+
+  @override
+  State<_StudentFormPage> createState() => _StudentFormPageState();
+}
+
+class _StudentFormPageState extends State<_StudentFormPage> {
+  // ── Section 1 — Admission Info ──────────────────────────────────────────────
+  final _formNoCtrl = TextEditingController();
+  final _scholarNoCtrl = TextEditingController();
+  final _admNoCtrl = TextEditingController();
+  final _rollCtrl = TextEditingController();
+  DateTime _admDate = DateTime.now();
+  String? _selectedClass;
+  String? _category;
+
+  // ── Section 2 — Personal ────────────────────────────────────────────────────
+  final _firstCtrl = TextEditingController();
+  final _lastCtrl = TextEditingController();
+  DateTime _dob = DateTime(2010);
+  String? _gender;
+  final _bloodCtrl = TextEditingController();
+
+  // ── Section 3 — Address ─────────────────────────────────────────────────────
+  final _addressCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _stateCtrl = TextEditingController();
+
+  // ── Section 4 — Family ──────────────────────────────────────────────────────
+  final _fatherNameCtrl = TextEditingController();
+  final _motherNameCtrl = TextEditingController();
+  final _guardianCtrl = TextEditingController();
+  final _fatherOccCtrl = TextEditingController();
+  final _fatherQualCtrl = TextEditingController();
+  final _motherQualCtrl = TextEditingController();
+
+  // ── Section 5 — Contact ─────────────────────────────────────────────────────
+  final _mobileCtrl = TextEditingController();
+  final _officePhoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+
+  // ── Section 6 — Identity ────────────────────────────────────────────────────
+  final _udiseCtrl = TextEditingController();
+  final _aadharCtrl = TextEditingController();
+
+  // ── Section 7 — Bank ────────────────────────────────────────────────────────
+  final _bankAccCtrl = TextEditingController();
+  final _ifscCtrl = TextEditingController();
+
+  // ── Section 8 — Previous Education ─────────────────────────────────────────
+  final _lastClassCtrl = TextEditingController();
+  final _lastYearCtrl = TextEditingController();
+  final _lastPctCtrl = TextEditingController();
+  final _lastTotalCtrl = TextEditingController();
+
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.existing;
+    if (s == null) return;
+    _formNoCtrl.text = s.formNumber ?? '';
+    _scholarNoCtrl.text = s.scholarNumber ?? '';
+    _admNoCtrl.text = s.admissionNumber ?? '';
+    _rollCtrl.text = s.rollNumber;
+    _admDate = s.admissionDate;
+    _selectedClass = s.classId;
+    _category = s.category;
+    _firstCtrl.text = s.firstName;
+    _lastCtrl.text = s.lastName;
+    _dob = s.dateOfBirth;
+    _gender = s.gender;
+    _bloodCtrl.text = s.bloodGroup ?? '';
+    _addressCtrl.text = s.address ?? '';
+    _cityCtrl.text = s.city ?? '';
+    _stateCtrl.text = s.state ?? '';
+    _fatherNameCtrl.text = s.fatherName ?? s.parentName ?? '';
+    _motherNameCtrl.text = s.motherName ?? '';
+    _guardianCtrl.text = s.guardianName ?? '';
+    _fatherOccCtrl.text = s.fatherOccupation ?? '';
+    _fatherQualCtrl.text = s.fatherQualification ?? '';
+    _motherQualCtrl.text = s.motherQualification ?? '';
+    _mobileCtrl.text = s.parentPhone ?? '';
+    _officePhoneCtrl.text = s.officePhone ?? '';
+    _emailCtrl.text = s.parentEmail ?? '';
+    _udiseCtrl.text = s.udiseNumber ?? '';
+    _aadharCtrl.text = s.aadharNumber ?? '';
+    _bankAccCtrl.text = s.bankAccountNumber ?? '';
+    _ifscCtrl.text = s.ifscCode ?? '';
+    _lastClassCtrl.text = s.lastPassedClass ?? '';
+    _lastYearCtrl.text = s.lastPassedYear ?? '';
+    _lastPctCtrl.text = s.lastPassedPercentage ?? '';
+    _lastTotalCtrl.text = s.lastPassedTotal ?? '';
+  }
+
+  @override
+  void dispose() {
+    for (final c in [
+      _formNoCtrl, _scholarNoCtrl, _admNoCtrl, _rollCtrl,
+      _firstCtrl, _lastCtrl, _bloodCtrl,
+      _addressCtrl, _cityCtrl, _stateCtrl,
+      _fatherNameCtrl, _motherNameCtrl, _guardianCtrl,
+      _fatherOccCtrl, _fatherQualCtrl, _motherQualCtrl,
+      _mobileCtrl, _officePhoneCtrl, _emailCtrl,
+      _udiseCtrl, _aadharCtrl,
+      _bankAccCtrl, _ifscCtrl,
+      _lastClassCtrl, _lastYearCtrl, _lastPctCtrl, _lastTotalCtrl,
+    ]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_firstCtrl.text.trim().isEmpty ||
+        _lastCtrl.text.trim().isEmpty ||
+        _rollCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('First name, last name and roll number are required'),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    setState(() => _saving = true);
+    final data = <String, dynamic>{
+      'first_name': _firstCtrl.text.trim(),
+      'last_name': _lastCtrl.text.trim(),
+      'roll_number': _rollCtrl.text.trim(),
+      'date_of_birth': _dob.toIso8601String().split('T')[0],
+      'admission_date': _admDate.toIso8601String().split('T')[0],
+      if (_formNoCtrl.text.isNotEmpty) 'form_number': _formNoCtrl.text.trim(),
+      if (_scholarNoCtrl.text.isNotEmpty)
+        'scholar_number': _scholarNoCtrl.text.trim(),
+      if (_admNoCtrl.text.isNotEmpty)
+        'admission_number': _admNoCtrl.text.trim(),
+      if (_selectedClass != null) 'class_id': _selectedClass,
+      if (_category != null) 'category': _category,
+      if (_gender != null) 'gender': _gender,
+      if (_bloodCtrl.text.isNotEmpty) 'blood_group': _bloodCtrl.text.trim(),
+      if (_addressCtrl.text.isNotEmpty) 'address': _addressCtrl.text.trim(),
+      if (_cityCtrl.text.isNotEmpty) 'city': _cityCtrl.text.trim(),
+      if (_stateCtrl.text.isNotEmpty) 'state': _stateCtrl.text.trim(),
+      if (_fatherNameCtrl.text.isNotEmpty)
+        'father_name': _fatherNameCtrl.text.trim(),
+      if (_motherNameCtrl.text.isNotEmpty)
+        'mother_name': _motherNameCtrl.text.trim(),
+      if (_guardianCtrl.text.isNotEmpty)
+        'guardian_name': _guardianCtrl.text.trim(),
+      if (_fatherOccCtrl.text.isNotEmpty)
+        'father_occupation': _fatherOccCtrl.text.trim(),
+      if (_fatherQualCtrl.text.isNotEmpty)
+        'father_qualification': _fatherQualCtrl.text.trim(),
+      if (_motherQualCtrl.text.isNotEmpty)
+        'mother_qualification': _motherQualCtrl.text.trim(),
+      if (_mobileCtrl.text.isNotEmpty) 'parent_phone': _mobileCtrl.text.trim(),
+      if (_officePhoneCtrl.text.isNotEmpty)
+        'office_phone': _officePhoneCtrl.text.trim(),
+      if (_emailCtrl.text.isNotEmpty) 'parent_email': _emailCtrl.text.trim(),
+      if (_udiseCtrl.text.isNotEmpty) 'udise_number': _udiseCtrl.text.trim(),
+      if (_aadharCtrl.text.isNotEmpty) 'aadhar_number': _aadharCtrl.text.trim(),
+      if (_bankAccCtrl.text.isNotEmpty)
+        'bank_account_number': _bankAccCtrl.text.trim(),
+      if (_ifscCtrl.text.isNotEmpty) 'ifsc_code': _ifscCtrl.text.trim(),
+      if (_lastClassCtrl.text.isNotEmpty)
+        'last_passed_class': _lastClassCtrl.text.trim(),
+      if (_lastYearCtrl.text.isNotEmpty)
+        'last_passed_year': _lastYearCtrl.text.trim(),
+      if (_lastPctCtrl.text.isNotEmpty)
+        'last_passed_percentage': _lastPctCtrl.text.trim(),
+      if (_lastTotalCtrl.text.isNotEmpty)
+        'last_passed_total': _lastTotalCtrl.text.trim(),
+    };
+    try {
+      if (widget.existing == null) {
+        await context.read<StudentProvider>().create(data);
+      } else {
+        await context
+            .read<StudentProvider>()
+            .update(widget.existing!.id, data);
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error saving student: $e'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final classes = context.watch<ClassProvider>().classes;
+
+    return Scaffold(
+      appBar: AppBar(
+        title:
+            Text(widget.existing == null ? 'Add Student' : 'Edit Student'),
+        actions: [
+          _saving
+              ? const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              : TextButton(
+                  onPressed: _save,
+                  child: const Text('Save'),
+                ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Admission Info ────────────────────────────────────────────
+            _FormSection(
+              title: 'Admission Info',
+              icon: Icons.assignment_outlined,
+              children: [
+                _twoCol(_tf(_formNoCtrl, 'Form No.'),
+                    _tf(_scholarNoCtrl, 'Scholar No.')),
+                const SizedBox(height: 12),
+                _twoCol(_tf(_admNoCtrl, 'Admission No.'),
+                    _tf(_rollCtrl, 'Roll Number *')),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(_selectedClass),
+                  initialValue: _selectedClass,
+                  decoration: const InputDecoration(labelText: 'Class'),
+                  items: classes
+                      .map((c) => DropdownMenuItem(
+                          value: c.id, child: Text(c.displayName)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedClass = v),
+                ),
+                const SizedBox(height: 12),
+                _dateTile('Admission Date', _admDate, (p) {
+                  setState(() => _admDate = p);
+                }, firstDate: DateTime(2000)),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(_category),
+                  initialValue: _category,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'general', child: Text('General')),
+                    DropdownMenuItem(value: 'obc', child: Text('OBC')),
+                    DropdownMenuItem(value: 'sc', child: Text('SC')),
+                    DropdownMenuItem(value: 'st', child: Text('ST')),
+                  ],
+                  onChanged: (v) => setState(() => _category = v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Personal Details ──────────────────────────────────────────
+            _FormSection(
+              title: 'Personal Details',
+              icon: Icons.person_outline,
+              children: [
+                _twoCol(_tf(_firstCtrl, 'First Name *'),
+                    _tf(_lastCtrl, 'Last Name *')),
+                const SizedBox(height: 12),
+                _dateTile('Date of Birth', _dob, (p) {
+                  setState(() => _dob = p);
+                }, firstDate: DateTime(1990)),
+                const SizedBox(height: 12),
+                _twoCol(
+                  DropdownButtonFormField<String>(
+                    key: ValueKey(_gender),
+                    initialValue: _gender,
+                    decoration: const InputDecoration(labelText: 'Gender'),
+                    items: const [
+                      DropdownMenuItem(value: 'male', child: Text('Male')),
+                      DropdownMenuItem(
+                          value: 'female', child: Text('Female')),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (v) => setState(() => _gender = v),
+                  ),
+                  _tf(_bloodCtrl, 'Blood Group'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Address ───────────────────────────────────────────────────
+            _FormSection(
+              title: 'Address',
+              icon: Icons.home_outlined,
+              children: [
+                _tf(_addressCtrl, 'Address'),
+                const SizedBox(height: 12),
+                _twoCol(_tf(_cityCtrl, 'City'), _tf(_stateCtrl, 'State')),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Family Details ────────────────────────────────────────────
+            _FormSection(
+              title: 'Family Details',
+              icon: Icons.family_restroom_outlined,
+              children: [
+                _twoCol(_tf(_fatherNameCtrl, "Father's Name"),
+                    _tf(_motherNameCtrl, "Mother's Name")),
+                const SizedBox(height: 12),
+                _tf(_guardianCtrl, "Guardian's Name (if any)"),
+                const SizedBox(height: 12),
+                _tf(_fatherOccCtrl, "Father's Occupation"),
+                const SizedBox(height: 12),
+                _twoCol(_tf(_fatherQualCtrl, "Father's Qualification"),
+                    _tf(_motherQualCtrl, "Mother's Qualification")),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Contact ───────────────────────────────────────────────────
+            _FormSection(
+              title: 'Contact',
+              icon: Icons.phone_outlined,
+              children: [
+                _twoCol(
+                  _tf(_mobileCtrl, 'Mobile',
+                      type: TextInputType.phone),
+                  _tf(_officePhoneCtrl, 'Office Phone',
+                      type: TextInputType.phone),
+                ),
+                const SizedBox(height: 12),
+                _tf(_emailCtrl, 'Email',
+                    type: TextInputType.emailAddress),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Identity Documents ────────────────────────────────────────
+            _FormSection(
+              title: 'Identity Documents',
+              icon: Icons.badge_outlined,
+              children: [
+                _twoCol(_tf(_udiseCtrl, 'UDISE No.'),
+                    _tf(_aadharCtrl, 'Aadhar No.')),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Bank Details ──────────────────────────────────────────────
+            _FormSection(
+              title: 'Bank Details',
+              icon: Icons.account_balance_outlined,
+              children: [
+                _tf(_bankAccCtrl, 'Bank Account No.',
+                    type: TextInputType.number),
+                const SizedBox(height: 12),
+                _tf(_ifscCtrl, 'IFSC Code'),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Previous Education ────────────────────────────────────────
+            _FormSection(
+              title: 'Previous Education',
+              icon: Icons.school_outlined,
+              children: [
+                _twoCol(
+                  _tf(_lastClassCtrl, 'Last Passed Class'),
+                  _tf(_lastYearCtrl, 'Year',
+                      type: TextInputType.number),
+                ),
+                const SizedBox(height: 12),
+                _twoCol(
+                  _tf(_lastPctCtrl, 'Percentage (%)',
+                      type: TextInputType.number),
+                  _tf(_lastTotalCtrl, 'Total Marks',
+                      type: TextInputType.number),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: const Icon(Icons.save_outlined),
+              label: Text(
+                  widget.existing == null ? 'Add Student' : 'Save Changes'),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  static Widget _twoCol(Widget a, Widget b) => Row(
+        children: [
+          Expanded(child: a),
+          const SizedBox(width: 12),
+          Expanded(child: b),
+        ],
+      );
+
+  static Widget _tf(
+    TextEditingController ctrl,
+    String label, {
+    TextInputType type = TextInputType.text,
+  }) =>
+      TextField(
+        controller: ctrl,
+        decoration: InputDecoration(labelText: label),
+        keyboardType: type,
+      );
+
+  Widget _dateTile(
+    String label,
+    DateTime value,
+    void Function(DateTime) onPicked, {
+    DateTime? firstDate,
+  }) =>
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(label),
+        subtitle: Text(
+            '${value.day.toString().padLeft(2, '0')}/'
+            '${value.month.toString().padLeft(2, '0')}/${value.year}'),
+        trailing: const Icon(Icons.calendar_today),
+        onTap: () async {
+          final p = await showDatePicker(
+            context: context,
+            initialDate: value,
+            firstDate: firstDate ?? DateTime(1990),
+            lastDate: DateTime.now(),
+          );
+          if (p != null) onPicked(p);
+        },
+      );
+}
+
+// ─── Form Section Card ────────────────────────────────────────────────────────
+
+class _FormSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+  const _FormSection(
+      {required this.title, required this.icon, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Icon(icon, size: 18),
+              const SizedBox(width: 8),
+              Text(title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 15)),
+            ]),
+            const Divider(height: 20),
+            ...children,
+          ],
+        ),
       ),
     );
   }

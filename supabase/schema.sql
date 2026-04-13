@@ -580,3 +580,26 @@ insert into bus_routes (route_name, route_number, driver_name, driver_phone, veh
   ('South Route', 'R2', 'Mike Driver', '555-0002', 'SCH-002', 40, 2000, '["South Gate","Railway Station","Market","School"]'),
   ('East Route', 'R3', 'Sam Driver', '555-0003', 'SCH-003', 35, 1800, '["East Colony","Hospital Road","School"]')
 on conflict do nothing;
+
+-- ─── MIGRATION: Admission Form Fields ────────────────────────────────────────
+-- Run this block in Supabase SQL Editor if the students table already exists.
+alter table students
+  add column if not exists form_number            text,
+  add column if not exists scholar_number         text,
+  add column if not exists father_name            text,
+  add column if not exists mother_name            text,
+  add column if not exists guardian_name          text,
+  add column if not exists office_phone           text,
+  add column if not exists father_occupation      text,
+  add column if not exists father_qualification   text,
+  add column if not exists mother_qualification   text,
+  add column if not exists udise_number           text,
+  add column if not exists aadhar_number          text,
+  add column if not exists bank_account_number    text,
+  add column if not exists ifsc_code              text,
+  add column if not exists last_passed_class      text,
+  add column if not exists last_passed_year       text,
+  add column if not exists last_passed_percentage text,
+  add column if not exists last_passed_total      text,
+  add column if not exists category               text
+    check (category in ('general','obc','sc','st'));
