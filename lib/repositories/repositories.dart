@@ -120,6 +120,48 @@ class StudentRepository {
         .count(CountOption.exact);
     return res.count;
   }
+
+  /// Returns {classId → student count} for active students.
+  Future<Map<String, int>> countByClass() async {
+    final data = await _db
+        .from('students')
+        .select('class_id')
+        .eq('status', 'active');
+    final counts = <String, int>{};
+    for (final row in data) {
+      final cid = row['class_id'] as String?;
+      if (cid != null) counts[cid] = (counts[cid] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /// Move all active students from [fromClassId] to [toClassId].
+  Future<void> promoteByClass(String fromClassId, String toClassId) async {
+    await _db
+        .from('students')
+        .update({'class_id': toClassId})
+        .eq('class_id', fromClassId)
+        .eq('status', 'active');
+  }
+
+  /// Mark active students in [classId] as alumni and assign TC numbers.
+  /// TC format: TC-[tcYear]-NNNN  (e.g. TC-2025-0001)
+  Future<void> issueTC(String classId, String tcYear, int startSeq) async {
+    final rows = await _db
+        .from('students')
+        .select('id')
+        .eq('class_id', classId)
+        .eq('status', 'active');
+    final dateStr = DateTime.now().toIso8601String().split('T')[0];
+    for (int i = 0; i < rows.length; i++) {
+      final seq = (startSeq + i).toString().padLeft(4, '0');
+      await _db.from('students').update({
+        'status': 'alumni',
+        'tc_number': 'TC-$tcYear-$seq',
+        'tc_issued_date': dateStr,
+      }).eq('id', rows[i]['id'] as String);
+    }
+  }
 }
 
 // ─── Teacher Repository ────────────────────────────────────────────────────────

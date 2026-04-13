@@ -602,4 +602,6 @@ alter table students
   add column if not exists last_passed_percentage text,
   add column if not exists last_passed_total      text,
   add column if not exists category               text
-    check (category in ('general','obc','sc','st'));
+    check (category in ('general','obc','sc','st')),
+  add column if not exists tc_number              text unique,
+  add column if not exists tc_issued_date         date;

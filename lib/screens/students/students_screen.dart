@@ -76,6 +76,18 @@ class _StudentsScreenState extends State<StudentsScreen> {
                     ShellScreen.scaffoldKey.currentState?.openDrawer(),
               ),
         title: const Text('Students'),
+        actions: [
+          if (role == UserRole.admin)
+            IconButton(
+              icon: const Icon(Icons.upgrade_rounded),
+              tooltip: 'Session Promotion',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const _PromotionPage()),
+              ),
+            ),
+        ],
       ),
       floatingActionButton: canEdit
           ? FloatingActionButton.extended(
@@ -356,6 +368,22 @@ class _StudentDetailPage extends StatelessWidget {
                 _row('Total Marks', student.lastPassedTotal),
               ],
             ),
+
+            // ── Transfer Certificate ────────────────────────────────────────
+            if (student.tcNumber != null)
+              _sectionCard(
+                title: 'Transfer Certificate',
+                icon: Icons.verified_outlined,
+                rows: [
+                  _row('TC Number', student.tcNumber),
+                  _row(
+                      'Issued Date',
+                      student.tcIssuedDate != null
+                          ? _fmt(student.tcIssuedDate!)
+                          : null),
+                  _row('Status', 'Alumni'),
+                ],
+              ),
 
             const SizedBox(height: 32),
           ],
@@ -904,6 +932,384 @@ class _FormSection extends StatelessWidget {
             ...children,
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Session Promotion Page ───────────────────────────────────────────────────
+
+class _PromotionPage extends StatefulWidget {
+  const _PromotionPage();
+
+  @override
+  State<_PromotionPage> createState() => _PromotionPageState();
+}
+
+class _PromotionPageState extends State<_PromotionPage> {
+  List<PromotionGroup>? _groups;
+  bool _loading = true;
+  bool _running = false;
+  String? _error;
+
+  // Default new academic year: if current is "2024-25" → "2025-26"
+  late final TextEditingController _yearCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _yearCtrl = TextEditingController(text: _nextYear());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPreview());
+  }
+
+  @override
+  void dispose() {
+    _yearCtrl.dispose();
+    super.dispose();
+  }
+
+  static String _nextYear() {
+    final now = DateTime.now();
+    final y = now.month >= 4 ? now.year : now.year - 1;
+    return '$y-${(y + 1).toString().substring(2)}';
+  }
+
+  Future<void> _loadPreview() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final classes = context.read<ClassProvider>().classes;
+      final groups =
+          await context.read<StudentProvider>().previewPromotion(classes);
+      if (mounted) setState(() => _groups = groups);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _confirmAndRun() async {
+    final groups = _groups;
+    if (groups == null) return;
+
+    final newYear = _yearCtrl.text.trim();
+    if (newYear.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please enter the new academic year'),
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    final totalStudents =
+        groups.fold<int>(0, (s, g) => s + g.studentCount);
+    final graduating =
+        groups.where((g) => g.isGraduation).fold<int>(0, (s, g) => s + g.studentCount);
+    final promoting = totalStudents - graduating;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Session Promotion'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('New academic year: $newYear'),
+            const SizedBox(height: 12),
+            _summaryRow(Icons.upgrade_rounded, Colors.green,
+                '$promoting students promoted to next class'),
+            const SizedBox(height: 8),
+            _summaryRow(Icons.verified_outlined, Colors.indigo,
+                '$graduating students will receive TC (Alumni)'),
+            const SizedBox(height: 16),
+            const Text(
+              'This action cannot be undone. Proceed?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Colors.deepOrange),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Run Promotion'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true || !mounted) return;
+
+    setState(() => _running = true);
+    try {
+      final result = await context
+          .read<StudentProvider>()
+          .runPromotion(groups, newYear);
+      if (!mounted) return;
+      _showResult(result);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Promotion failed: $e'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _running = false);
+    }
+  }
+
+  void _showResult(PromotionResult result) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Promotion Complete'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _summaryRow(Icons.upgrade_rounded, Colors.green,
+                '${result.promoted} students promoted'),
+            const SizedBox(height: 8),
+            _summaryRow(Icons.verified_outlined, Colors.indigo,
+                '${result.graduated} TCs issued (Alumni)'),
+            if (result.warnings.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('Warnings:',
+                  style: TextStyle(
+                      color: Colors.orange, fontWeight: FontWeight.bold)),
+              ...result.warnings.map((w) => Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('• $w',
+                        style: const TextStyle(fontSize: 13)),
+                  )),
+            ],
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context); // back to students list
+            },
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _summaryRow(IconData icon, Color color, String text) =>
+      Row(children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text)),
+      ]);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final groups = _groups ?? [];
+    final totalPromoted =
+        groups.where((g) => !g.isGraduation && g.toClass != null).fold<int>(
+            0, (s, g) => s + g.studentCount);
+    final totalGrad = groups
+        .where((g) => g.isGraduation)
+        .fold<int>(0, (s, g) => s + g.studentCount);
+    final totalWarn =
+        groups.where((g) => !g.isGraduation && g.toClass == null).length;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Session Promotion'),
+        actions: [
+          if (!_loading && !_running)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Reload preview',
+              onPressed: _loadPreview,
+            ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_error!, style: const TextStyle(color: Colors.red)),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                          onPressed: _loadPreview,
+                          child: const Text('Retry')),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── Year picker ─────────────────────────────────────
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Academic Year',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15)),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _yearCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'New Academic Year',
+                                  hintText: 'e.g. 2025-26',
+                                  prefixIcon: Icon(Icons.calendar_month),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // ── Summary chips ───────────────────────────────────
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _chip(Icons.upgrade_rounded, Colors.green,
+                                  '$totalPromoted to be promoted'),
+                              _chip(Icons.verified_outlined, Colors.indigo,
+                                  '$totalGrad to receive TC'),
+                              if (totalWarn > 0)
+                                _chip(Icons.warning_amber_rounded,
+                                    Colors.orange,
+                                    '$totalWarn class(es) unresolved'),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // ── Class-by-class preview ──────────────────────────
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Promotion Preview',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15)),
+                              const Divider(height: 20),
+                              if (groups.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Text('No active students found.'),
+                                )
+                              else
+                                ...groups.map((g) => _groupRow(g, cs)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Run button ──────────────────────────────────────
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.deepOrange,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed:
+                            (_running || groups.isEmpty) ? null : _confirmAndRun,
+                        icon: _running
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white))
+                            : const Icon(Icons.upgrade_rounded),
+                        label: Text(_running
+                            ? 'Running…'
+                            : 'Run Session Promotion'),
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+    );
+  }
+
+  static Widget _chip(IconData icon, Color color, String label) => Chip(
+        avatar: Icon(icon, color: color, size: 16),
+        label: Text(label, style: const TextStyle(fontSize: 13)),
+      );
+
+  static Widget _groupRow(PromotionGroup g, ColorScheme cs) {
+    final Color rowColor;
+    final String targetLabel;
+    final IconData targetIcon;
+
+    if (g.isGraduation) {
+      rowColor = Colors.indigo;
+      targetLabel = 'TC Issued (Alumni)';
+      targetIcon = Icons.verified_outlined;
+    } else if (g.toClass != null) {
+      rowColor = Colors.green;
+      targetLabel = g.toClass!.displayName;
+      targetIcon = Icons.arrow_forward_rounded;
+    } else {
+      rowColor = Colors.orange;
+      targetLabel = 'No Grade ${g.fromClass.gradeLevel + 1} class found';
+      targetIcon = Icons.warning_amber_rounded;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(g.fromClass.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text('${g.studentCount} student(s)',
+                    style:
+                        TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+              ],
+            ),
+          ),
+          Icon(targetIcon, color: rowColor, size: 18),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(targetLabel,
+                style: TextStyle(
+                    color: rowColor,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13)),
+          ),
+        ],
       ),
     );
   }

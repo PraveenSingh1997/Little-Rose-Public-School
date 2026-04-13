@@ -38,6 +38,9 @@ class Student {
   final String? lastPassedTotal;
   // Category
   final String? category; // general | obc | sc | st
+  // Transfer Certificate
+  final String? tcNumber;
+  final DateTime? tcIssuedDate;
   final String? classId;
   final DateTime admissionDate;
   final String status;
@@ -79,6 +82,8 @@ class Student {
     this.lastPassedPercentage,
     this.lastPassedTotal,
     this.category,
+    this.tcNumber,
+    this.tcIssuedDate,
     this.classId,
     required this.admissionDate,
     this.status = 'active',
@@ -136,6 +141,10 @@ class Student {
         lastPassedPercentage: j['last_passed_percentage'],
         lastPassedTotal: j['last_passed_total'],
         category: j['category'],
+        tcNumber: j['tc_number'],
+        tcIssuedDate: j['tc_issued_date'] != null
+            ? DateTime.tryParse(j['tc_issued_date'])
+            : null,
         classId: j['class_id'],
         admissionDate: DateTime.parse(j['admission_date']),
         status: j['status'] ?? 'active',
@@ -177,6 +186,8 @@ class Student {
         'last_passed_percentage': lastPassedPercentage,
         'last_passed_total': lastPassedTotal,
         'category': category,
+        'tc_number': tcNumber,
+        'tc_issued_date': tcIssuedDate?.toIso8601String().split('T')[0],
         'class_id': classId,
         'admission_date': admissionDate.toIso8601String().split('T')[0],
         'status': status,

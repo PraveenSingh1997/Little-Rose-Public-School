@@ -105,6 +105,35 @@ class AuthProvider extends ChangeNotifier {
   }
 }
 
+// ─── Promotion data models ────────────────────────────────────────────────────
+
+class PromotionGroup {
+  final SchoolClass fromClass;
+  final SchoolClass? toClass; // null when isGraduation
+  final int studentCount;
+
+  const PromotionGroup({
+    required this.fromClass,
+    required this.toClass,
+    required this.studentCount,
+  });
+
+  bool get isGraduation => fromClass.gradeLevel == 12;
+  bool get hasTarget => toClass != null || isGraduation;
+}
+
+class PromotionResult {
+  final int promoted;
+  final int graduated;
+  final List<String> warnings;
+
+  const PromotionResult({
+    required this.promoted,
+    required this.graduated,
+    required this.warnings,
+  });
+}
+
 // ─── Student Provider ─────────────────────────────────────────────────────────
 
 class StudentProvider extends ChangeNotifier {
@@ -179,6 +208,58 @@ class StudentProvider extends ChangeNotifier {
       final matchClass = classId == null || s.classId == classId;
       return (matchName || matchRoll) && matchClass;
     }).toList();
+  }
+
+  /// Build a promotion preview from the current class list.
+  /// Returns one [PromotionGroup] per class that has active students.
+  Future<List<PromotionGroup>> previewPromotion(
+      List<SchoolClass> allClasses) async {
+    final counts = await _repo.countByClass();
+    final groups = <PromotionGroup>[];
+    for (final cls in allClasses) {
+      final count = counts[cls.id] ?? 0;
+      if (count == 0) continue;
+      SchoolClass? next;
+      if (cls.gradeLevel < 12) {
+        next = allClasses
+            .where((c) =>
+                c.gradeLevel == cls.gradeLevel + 1 &&
+                c.section == cls.section)
+            .firstOrNull;
+      }
+      groups.add(PromotionGroup(
+        fromClass: cls,
+        toClass: next,
+        studentCount: count,
+      ));
+    }
+    return groups;
+  }
+
+  /// Execute the promotion. Returns a [PromotionResult] summary.
+  /// [newYear] e.g. "2025-26" — used as the TC year label.
+  Future<PromotionResult> runPromotion(
+      List<PromotionGroup> groups, String newYear) async {
+    int promoted = 0, graduated = 0, tcSeq = 1;
+    final warnings = <String>[];
+    for (final g in groups) {
+      if (g.studentCount == 0) continue;
+      if (g.isGraduation) {
+        await _repo.issueTC(g.fromClass.id, newYear, tcSeq);
+        tcSeq += g.studentCount;
+        graduated += g.studentCount;
+      } else if (g.toClass != null) {
+        await _repo.promoteByClass(g.fromClass.id, g.toClass!.id);
+        promoted += g.studentCount;
+      } else {
+        warnings.add(
+            '${g.fromClass.displayName} — no Grade ${g.fromClass.gradeLevel + 1} '
+            'class found (students left unchanged)');
+      }
+    }
+    await loadAll();
+    return PromotionResult(
+        promoted: promoted, graduated: graduated, warnings: warnings);
   }
 }
 
