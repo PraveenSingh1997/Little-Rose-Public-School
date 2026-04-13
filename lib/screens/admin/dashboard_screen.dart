@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/auth_models.dart';
+import '../../models/academic_models.dart';
 import '../../models/misc_models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
@@ -252,6 +253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _UnpaidStudentsCard(
                       allStudents: students.students,
                       paidIds: fees.studentsPaidThisMonth,
+                      classes: context.read<ClassProvider>().classes,
                       loading: students.loading || fees.loading,
                     ),
                   ],
@@ -530,11 +532,13 @@ class _FeeCard extends StatelessWidget {
 class _UnpaidStudentsCard extends StatelessWidget {
   final List<dynamic> allStudents;
   final Set<String> paidIds;
+  final List<SchoolClass> classes;
   final bool loading;
 
   const _UnpaidStudentsCard({
     required this.allStudents,
     required this.paidIds,
+    required this.classes,
     required this.loading,
   });
 
@@ -660,7 +664,7 @@ class _UnpaidStudentsCard extends StatelessWidget {
                       style: tt.bodySmall
                           ?.copyWith(fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                    'Roll: ${s.rollNumber}${s.className != null ? '  •  ${s.className}' : ''}',
+                    'Roll: ${s.rollNumber}${s.classId != null ? '  •  ${classes.where((c) => c.id == s.classId).map((c) => c.displayName).firstOrNull ?? ''}' : ''}',
                     style: tt.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant),
                   ),
