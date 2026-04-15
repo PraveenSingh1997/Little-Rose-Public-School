@@ -70,13 +70,19 @@ class ShellScreen extends StatefulWidget {
   // Static key so inner screens can open the drawer
   static final scaffoldKey = GlobalKey<ScaffoldState>();
 
+  /// Navigate to a shell index from any descendant widget.
+  static ShellScreenState? of(BuildContext ctx) =>
+      ctx.findAncestorStateOfType<ShellScreenState>();
+
   @override
-  State<ShellScreen> createState() => _ShellScreenState();
+  State<ShellScreen> createState() => ShellScreenState();
 }
 
-class _ShellScreenState extends State<ShellScreen> {
+class ShellScreenState extends State<ShellScreen> {
   int _selectedIndex = 0;
   final Set<int> _visited = {0};
+
+  void navigateTo(int index) => _navigate(index);
 
   Widget _screenForIndex(int index) {
     switch (index) {

@@ -6,6 +6,7 @@ import '../../models/student_models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
 import '../shell_screen.dart';
+import 'admission_ocr_sheet.dart';
 
 // ─── Students List Screen ─────────────────────────────────────────────────────
 
@@ -571,6 +572,44 @@ class _StudentFormPageState extends State<_StudentFormPage> {
     super.dispose();
   }
 
+  Future<void> _scanAdmissionForm() async {
+    final fill = await showAdmissionOcrSheet(context);
+    if (fill == null || !mounted) return;
+    setState(() {
+      if (fill.firstName != null) _firstCtrl.text = fill.firstName!;
+      if (fill.lastName != null) _lastCtrl.text = fill.lastName!;
+      if (fill.fatherName != null) _fatherNameCtrl.text = fill.fatherName!;
+      if (fill.motherName != null) _motherNameCtrl.text = fill.motherName!;
+      if (fill.formNumber != null) _formNoCtrl.text = fill.formNumber!;
+      if (fill.scholarNumber != null) _scholarNoCtrl.text = fill.scholarNumber!;
+      if (fill.admissionNumber != null) _admNoCtrl.text = fill.admissionNumber!;
+      if (fill.address != null) _addressCtrl.text = fill.address!;
+      if (fill.fatherOccupation != null) _fatherOccCtrl.text = fill.fatherOccupation!;
+      if (fill.fatherQualification != null) _fatherQualCtrl.text = fill.fatherQualification!;
+      if (fill.motherQualification != null) _motherQualCtrl.text = fill.motherQualification!;
+      if (fill.guardianName != null) _guardianCtrl.text = fill.guardianName!;
+      if (fill.mobile != null) _mobileCtrl.text = fill.mobile!;
+      if (fill.officePhone != null) _officePhoneCtrl.text = fill.officePhone!;
+      if (fill.udiseNumber != null) _udiseCtrl.text = fill.udiseNumber!;
+      if (fill.aadharNumber != null) _aadharCtrl.text = fill.aadharNumber!;
+      if (fill.bankAccountNumber != null) _bankAccCtrl.text = fill.bankAccountNumber!;
+      if (fill.ifscCode != null) _ifscCtrl.text = fill.ifscCode!;
+      if (fill.lastPassedClass != null) _lastClassCtrl.text = fill.lastPassedClass!;
+      if (fill.lastPassedYear != null) _lastYearCtrl.text = fill.lastPassedYear!;
+      if (fill.lastPassedPercentage != null) _lastPctCtrl.text = fill.lastPassedPercentage!;
+      if (fill.lastPassedTotal != null) _lastTotalCtrl.text = fill.lastPassedTotal!;
+      if (fill.dateOfBirth != null) _dob = fill.dateOfBirth!;
+      if (fill.category != null) _category = fill.category;
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Scanned — please review and correct any fields'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Color(0xFF2E7D32),
+      ));
+    }
+  }
+
   Future<void> _save() async {
     if (_firstCtrl.text.trim().isEmpty ||
         _lastCtrl.text.trim().isEmpty ||
@@ -678,6 +717,58 @@ class _StudentFormPageState extends State<_StudentFormPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ── OCR Scan Banner ───────────────────────────────────────────
+            InkWell(
+              onTap: _scanAdmissionForm,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.document_scanner_rounded,
+                          color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Scan Admission Form',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14)),
+                          SizedBox(height: 2),
+                          Text(
+                              'Camera or gallery — auto-fills all fields',
+                              style: TextStyle(
+                                  color: Colors.white70, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded,
+                        color: Colors.white70, size: 16),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // ── Admission Info ────────────────────────────────────────────
             _FormSection(
               title: 'Admission Info',

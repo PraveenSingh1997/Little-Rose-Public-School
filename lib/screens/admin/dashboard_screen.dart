@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/auth_models.dart';
 import '../../models/academic_models.dart';
 import '../../models/misc_models.dart';
+import '../../models/student_models.dart';
 import '../../providers/app_provider.dart';
 import '../../widgets/common_widgets.dart';
 import '../shell_screen.dart';
@@ -19,11 +20,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<StudentProvider>().loadAll();
-      context.read<TeacherProvider>().loadAll();
+      if (!mounted) return;
+      final role = context.read<AuthProvider>().role;
       context.read<AnnouncementProvider>().load();
-      context.read<ClassProvider>().loadAll();
-      context.read<FeeProvider>().loadPayments();
+      if (role == UserRole.student) {
+        final profileId = context.read<AuthProvider>().profile?.id;
+        if (profileId != null) {
+          context.read<StudentProvider>().loadByProfile(profileId);
+        }
+        context.read<ClassProvider>().loadAll();
+      } else if (role == UserRole.parent) {
+        final profileId = context.read<AuthProvider>().profile?.id;
+        if (profileId != null) {
+          context.read<StudentProvider>().loadByParent(profileId);
+        }
+      } else {
+        context.read<StudentProvider>().loadAll();
+        context.read<TeacherProvider>().loadAll();
+        context.read<ClassProvider>().loadAll();
+        context.read<FeeProvider>().loadPayments();
+      }
     });
   }
 
@@ -45,6 +61,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isWide = MediaQuery.of(context).size.width >= 720;
     final cs = Theme.of(context).colorScheme;
     final isAdmin = auth.role == UserRole.admin;
+
+    // ── Student role: show tile dashboard ─────────────────────────────────────
+    if (auth.role == UserRole.student) {
+      final className = classes.classes
+          .where((c) => c.id == students.selectedStudent?.classId)
+          .map((c) => c.displayName)
+          .firstOrNull ?? '';
+      return _StudentDashboard(
+        auth: auth,
+        student: students.selectedStudent,
+        className: className,
+        loading: students.loading,
+        announcements: announcements.announcements,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -691,13 +722,779 @@ class _UnpaidStudentsCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 10),
               child: Center(
                 child: Text(
-                  '+${unpaid.length - 10} more students',
+                  '+${unpaid.length - 10} more',
                   style: tt.labelSmall
                       ?.copyWith(color: cs.onSurfaceVariant),
                 ),
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STUDENT TILE DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _StudentDashboard extends StatelessWidget {
+  final AuthProvider auth;
+  final Student? student;
+  final String className;
+  final bool loading;
+  final List<Announcement> announcements;
+
+  const _StudentDashboard({
+    required this.auth,
+    required this.student,
+    required this.className,
+    required this.loading,
+    required this.announcements,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 720;
+    final shell = ShellScreen.of(context);
+    final s = student;
+    final year = DateTime.now().year.toString();
+
+    final tiles = <_TileData>[
+      _TileData(
+        title: 'About Me',
+        icon: Icons.person_rounded,
+        value: 'Click!',
+        color: const Color(0xFF1565C0),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                _StudentAboutPage(student: s, className: className),
+          ),
+        ),
+      ),
+      _TileData(
+        title: 'Timetable',
+        icon: Icons.schedule_rounded,
+        value: 'Click!',
+        color: const Color(0xFF00695C),
+        onTap: () => shell?.navigateTo(5),
+      ),
+      _TileData(
+        title: 'Attendance',
+        icon: Icons.fact_check_rounded,
+        value: 'Click!',
+        color: const Color(0xFFE65100),
+        onTap: () => shell?.navigateTo(6),
+      ),
+      _TileData(
+        title: 'Exams',
+        icon: Icons.assignment_rounded,
+        value: 'Click!',
+        color: const Color(0xFF6A1B9A),
+        onTap: () => shell?.navigateTo(7),
+      ),
+      _TileData(
+        title: 'Fee Management',
+        icon: Icons.payments_rounded,
+        value: 'Click!',
+        color: const Color(0xFF0277BD),
+        onTap: () => shell?.navigateTo(8),
+      ),
+      _TileData(
+        title: 'Library',
+        icon: Icons.local_library_rounded,
+        value: 'Click!',
+        color: const Color(0xFF00838F),
+        onTap: () => shell?.navigateTo(9),
+      ),
+      _TileData(
+        title: 'Transport',
+        icon: Icons.directions_bus_rounded,
+        value: 'Click!',
+        color: const Color(0xFF1B5E20),
+        onTap: () => shell?.navigateTo(10),
+      ),
+      _TileData(
+        title: 'Hostel',
+        icon: Icons.hotel_rounded,
+        value: 'Click!',
+        color: const Color(0xFF4527A0),
+        onTap: () => shell?.navigateTo(11),
+      ),
+      _TileData(
+        title: 'Homework',
+        icon: Icons.book_rounded,
+        value: 'Click!',
+        color: const Color(0xFFBF360C),
+        onTap: () => shell?.navigateTo(12),
+      ),
+      _TileData(
+        title: 'Announcements',
+        icon: Icons.campaign_rounded,
+        value: announcements.isNotEmpty
+            ? '${announcements.length} new'
+            : 'Click!',
+        color: const Color(0xFFF57C00),
+        onTap: () => shell?.navigateTo(13),
+      ),
+      _TileData(
+        title: 'Notifications',
+        icon: Icons.notifications_rounded,
+        value: 'Click!',
+        color: const Color(0xFF2E7D32),
+        onTap: () => shell?.navigateTo(14),
+      ),
+      _TileData(
+        title: 'My Profile',
+        icon: Icons.manage_accounts_rounded,
+        value: 'Click!',
+        color: const Color(0xFF37474F),
+        onTap: () => shell?.navigateTo(15),
+      ),
+    ];
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F4F8),
+      appBar: _StudentAppBar(
+        auth: auth,
+        student: s,
+        className: className,
+        year: year,
+        isWide: isWide,
+      ),
+      body: loading
+          ? const Center(child: LoadingWidget())
+          : ListView(
+              children: [
+                _StudentHeaderCard(student: s, className: className),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: isWide ? 4 : 2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 0.95,
+                    ),
+                    itemCount: tiles.length,
+                    itemBuilder: (_, i) => _DashTile(data: tiles[i]),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+// ─── Student AppBar ───────────────────────────────────────────────────────────
+
+class _StudentAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final AuthProvider auth;
+  final Student? student;
+  final String className;
+  final String year;
+  final bool isWide;
+
+  const _StudentAppBar({
+    required this.auth,
+    required this.student,
+    required this.className,
+    required this.year,
+    required this.isWide,
+  });
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: const Color(0xFF1565C0),
+      foregroundColor: Colors.white,
+      leading: isWide
+          ? null
+          : IconButton(
+              icon: const Icon(Icons.menu_rounded, color: Colors.white),
+              onPressed: () =>
+                  ShellScreen.scaffoldKey.currentState?.openDrawer(),
+            ),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.account_balance_rounded,
+                color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  auth.profile?.fullName.toUpperCase() ?? 'STUDENT',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (className.isNotEmpty)
+                  Text(
+                    '$className · $year',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 11,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: AvatarWidget(
+            photoUrl: auth.profile?.avatarUrl,
+            initials: auth.profile?.initials ?? 'S',
+            radius: 17,
+            backgroundColor: Colors.white.withValues(alpha: 0.2),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Student Header Card ──────────────────────────────────────────────────────
+
+class _StudentHeaderCard extends StatelessWidget {
+  final Student? student;
+  final String className;
+  const _StudentHeaderCard(
+      {required this.student, required this.className});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = student;
+    if (s == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1565C0).withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.2),
+              border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.5), width: 2),
+            ),
+            child: Center(
+              child: Text(
+                s.firstName.isNotEmpty
+                    ? s.firstName[0].toUpperCase()
+                    : '?',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  s.fullName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    _HChip(Icons.badge_rounded, 'Roll: ${s.rollNumber}'),
+                    if (className.isNotEmpty)
+                      _HChip(Icons.class_rounded, className),
+                    if (s.category != null)
+                      _HChip(Icons.label_rounded,
+                          s.category!.toUpperCase()),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _HChip(this.icon, this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: Colors.white70),
+          const SizedBox(width: 3),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Tile ─────────────────────────────────────────────────────────────────────
+
+class _TileData {
+  final String title;
+  final IconData icon;
+  final String value;
+  final Color color;
+  final VoidCallback onTap;
+  const _TileData({
+    required this.title,
+    required this.icon,
+    required this.value,
+    required this.color,
+    required this.onTap,
+  });
+}
+
+class _DashTile extends StatelessWidget {
+  final _TileData data;
+  const _DashTile({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final d = data;
+    return GestureDetector(
+      onTap: d.onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [d.color, d.color.withValues(alpha: 0.82)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: d.color.withValues(alpha: 0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                d.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const Spacer(),
+              Center(
+                  child: Icon(d.icon, color: Colors.white, size: 36)),
+              const SizedBox(height: 5),
+              Center(
+                child: Text(
+                  d.value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Row(
+                children: [
+                  Text(
+                    'More info',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  Icon(Icons.arrow_forward_rounded,
+                      color: Colors.white.withValues(alpha: 0.85),
+                      size: 12),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ABOUT ME PAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _StudentAboutPage extends StatelessWidget {
+  final Student? student;
+  final String className;
+  const _StudentAboutPage(
+      {required this.student, required this.className});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = student;
+    if (s == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('About Me')),
+        body: const Center(child: Text('No student record linked.')),
+      );
+    }
+
+    String fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F4F8),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1565C0),
+        foregroundColor: Colors.white,
+        title: const Text('About Me',
+            style: TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w700)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(14),
+        children: [
+          // ── Profile hero ─────────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: Colors.white.withValues(alpha: 0.25),
+                  child: Text(
+                    s.firstName.isNotEmpty
+                        ? s.firstName[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(s.fullName,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 4),
+                if (className.isNotEmpty)
+                  Text(className,
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 13)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _AbtChip('Roll: ${s.rollNumber}'),
+                    if (s.gender != null) _AbtChip(s.gender!),
+                    if (s.bloodGroup != null) _AbtChip(s.bloodGroup!),
+                    if (s.category != null)
+                      _AbtChip(s.category!.toUpperCase()),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          _AbtSection(
+            icon: Icons.school_rounded,
+            title: 'Admission Info',
+            rows: [
+              _r('Roll Number', s.rollNumber),
+              _r('Admission No.', s.admissionNumber),
+              _r('Form No.', s.formNumber),
+              _r('Scholar No.', s.scholarNumber),
+              _r('Admission Date', fmt(s.admissionDate)),
+              _r('Class', className.isNotEmpty ? className : null),
+              _r('Category', s.category?.toUpperCase()),
+            ],
+          ),
+
+          _AbtSection(
+            icon: Icons.person_rounded,
+            title: 'Personal',
+            rows: [
+              _r('Date of Birth', fmt(s.dateOfBirth)),
+              _r('Age', '${s.age} years'),
+              _r('Gender', s.gender),
+              _r('Blood Group', s.bloodGroup),
+            ],
+          ),
+
+          _AbtSection(
+            icon: Icons.home_rounded,
+            title: 'Address',
+            rows: [
+              _r('Address', s.address),
+              _r('City', s.city),
+              _r('State', s.state),
+            ],
+          ),
+
+          _AbtSection(
+            icon: Icons.family_restroom_rounded,
+            title: 'Family',
+            rows: [
+              _r("Father's Name", s.fatherName ?? s.parentName),
+              _r("Mother's Name", s.motherName),
+              _r('Guardian', s.guardianName),
+              _r("Father's Occupation", s.fatherOccupation),
+              _r("Father's Qualification", s.fatherQualification),
+              _r("Mother's Qualification", s.motherQualification),
+            ],
+          ),
+
+          _AbtSection(
+            icon: Icons.phone_rounded,
+            title: 'Contact',
+            rows: [
+              _r('Mobile', s.parentPhone),
+              _r('Office Phone', s.officePhone),
+              _r('Email', s.parentEmail),
+            ],
+          ),
+
+          _AbtSection(
+            icon: Icons.fingerprint_rounded,
+            title: 'Identity',
+            rows: [
+              _r('Aadhar Number', s.aadharNumber),
+              _r('UDISE Number', s.udiseNumber),
+            ],
+          ),
+
+          _AbtSection(
+            icon: Icons.account_balance_rounded,
+            title: 'Bank Details',
+            rows: [
+              _r('Account Number', s.bankAccountNumber),
+              _r('IFSC Code', s.ifscCode),
+            ],
+          ),
+
+          _AbtSection(
+            icon: Icons.history_edu_rounded,
+            title: 'Previous Education',
+            rows: [
+              _r('Last Class Passed', s.lastPassedClass),
+              _r('Year', s.lastPassedYear),
+              _r('Percentage',
+                  s.lastPassedPercentage != null
+                      ? '${s.lastPassedPercentage}%'
+                      : null),
+              _r('Total Marks', s.lastPassedTotal),
+            ],
+          ),
+
+          if (s.tcNumber != null)
+            _AbtSection(
+              icon: Icons.card_membership_rounded,
+              title: 'Transfer Certificate',
+              rows: [
+                _r('TC Number', s.tcNumber),
+                _r('Issued Date',
+                    s.tcIssuedDate != null ? fmt(s.tcIssuedDate!) : null),
+              ],
+            ),
+
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  static _AR? _r(String label, String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return _AR(label, value.trim());
+  }
+}
+
+class _AR {
+  final String label;
+  final String value;
+  const _AR(this.label, this.value);
+}
+
+class _AbtChip extends StatelessWidget {
+  final String label;
+  const _AbtChip(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+      ),
+      child: Text(label,
+          style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+class _AbtSection extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final List<_AR?> rows;
+  const _AbtSection(
+      {required this.icon, required this.title, required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = rows.whereType<_AR>().toList();
+    if (visible.isEmpty) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color:
+                        const Color(0xFF1565C0).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon,
+                      size: 16, color: const Color(0xFF1565C0)),
+                ),
+                const SizedBox(width: 8),
+                Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: Color(0xFF1565C0))),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          ...visible.map(
+            (r) => Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 155,
+                    child: Text(r.label,
+                        style: TextStyle(
+                            color: cs.onSurfaceVariant, fontSize: 13)),
+                  ),
+                  Expanded(
+                    child: Text(r.value,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
         ],
       ),
     );
