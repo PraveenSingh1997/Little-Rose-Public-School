@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/auth_models.dart';
 import '../../models/student_models.dart';
 import '../../providers/app_provider.dart';
@@ -681,12 +682,36 @@ class _StudentFormPageState extends State<_StudentFormPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
+        final msg = _friendlyError(e);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error saving student: $e'),
+          content: Text(msg),
           behavior: SnackBarBehavior.floating,
+          backgroundColor: Theme.of(context).colorScheme.error,
+          duration: const Duration(seconds: 6),
         ));
       }
     }
+  }
+
+  String _friendlyError(Object e) {
+    if (e is PostgrestException && e.code == '23505') {
+      final s = e.message.toLowerCase();
+      if (s.contains('roll_number')) {
+        return 'Roll number "${_rollCtrl.text.trim()}" is already taken. Use a different roll number.';
+      } else if (s.contains('admission_number')) {
+        return 'Admission number "${_admNoCtrl.text.trim()}" is already in use.';
+      } else if (s.contains('scholar_number')) {
+        return 'Scholar number "${_scholarNoCtrl.text.trim()}" is already in use.';
+      } else if (s.contains('form_number')) {
+        return 'Form number "${_formNoCtrl.text.trim()}" is already in use.';
+      } else if (s.contains('aadhar')) {
+        return 'Aadhar number "${_aadharCtrl.text.trim()}" is already linked to another student.';
+      } else if (s.contains('udise')) {
+        return 'UDISE number "${_udiseCtrl.text.trim()}" is already in use.';
+      }
+      return 'A student with these details already exists. Check roll number, admission number, or other unique fields.';
+    }
+    return 'Error saving student: $e';
   }
 
   @override
@@ -781,8 +806,7 @@ class _StudentFormPageState extends State<_StudentFormPage> {
                     _tf(_rollCtrl, 'Roll Number *')),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  key: ValueKey(_selectedClass),
-                  initialValue: _selectedClass,
+                  value: _selectedClass,
                   decoration: const InputDecoration(labelText: 'Class'),
                   items: classes
                       .map((c) => DropdownMenuItem(
@@ -796,8 +820,7 @@ class _StudentFormPageState extends State<_StudentFormPage> {
                 }, firstDate: DateTime(2000)),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  key: ValueKey(_category),
-                  initialValue: _category,
+                  value: _category,
                   decoration: const InputDecoration(labelText: 'Category'),
                   items: const [
                     DropdownMenuItem(
@@ -826,8 +849,7 @@ class _StudentFormPageState extends State<_StudentFormPage> {
                 const SizedBox(height: 12),
                 _twoCol(
                   DropdownButtonFormField<String>(
-                    key: ValueKey(_gender),
-                    initialValue: _gender,
+                    value: _gender,
                     decoration: const InputDecoration(labelText: 'Gender'),
                     items: const [
                       DropdownMenuItem(value: 'male', child: Text('Male')),
